@@ -29,7 +29,7 @@ PII Guard lowers the risk of sharing personal data; it does not by itself make y
 **Language:** English.
 
 **Graphics:**
-- Icon 128×128: inside the zip (`icons/icon128.png`)
+- Store icon 128×128: `store-icon-128.png` (96×96 artwork with 16 px transparent padding, as Google asks). The same file is `icons/icon128.png` inside the zip.
 - Screenshots 1280×800 (in this order): `screenshot-1-review.png`, `screenshot-2-typing.png`, `screenshot-3-rightclick.png`, `screenshot-4-originals.png`, `screenshot-5-settings.png`
 - Small promo tile 440×280: `promo-small-440x280.png`
 - Marquee promo tile 1400×560 (optional): `promo-marquee-1400x560.png`
