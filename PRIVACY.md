@@ -11,6 +11,17 @@ Almma’s PII Guard (PII Guard) is a browser extension published by Almma. It ch
 
 It does not run on any other website.
 
+## Kinds of data it handles (on your device only)
+
+Because it reads what you write in the chat box, PII Guard handles:
+
+- **Personally identifiable information**: names, e-mail addresses, phone and ID numbers, dates, street addresses and similar details it looks for.
+- **Health information**: any medical details in the text you write (for example record numbers, dates of care or other notes) are read in order to check them.
+- **Personal communications**: the chat message you are writing.
+- **Website content**: the text in the message box, and the text you select when you use the right-click menu.
+
+This data is processed only inside your browser to flag and replace personal details. It is never sent to Almma or anyone else.
+
 ## What PII Guard stores, and where
 
 - **Placeholder key** (for example `[NAME_1]` = the original name): kept in the browser's session memory. It is never written to disk and is erased when the browser closes, or earlier if you press "Forget all placeholders now".
@@ -32,7 +43,7 @@ What you choose to send to an AI chat service after reviewing is sent by that we
 
 ## Children
 
-PII Guard is not directed at children and collects no data from anyone.
+PII Guard is not directed at children. It sends no data about anyone, including children, to Almma or anyone else.
 
 ## Changes
 
