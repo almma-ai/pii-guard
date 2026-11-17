@@ -2,6 +2,8 @@
 
 A browser extension that catches personal data (names, IDs, dates, addresses, phone numbers, e-mail addresses) in the message box of **claude.ai** and **chat.almma.ai** before it is sent, and replaces it with placeholders such as `[NAME_1]`. It runs entirely in your browser: the code contains no network calls.
 
+Demo video (73 s): https://www.youtube.com/watch?v=k2dVQsBeQo4
+
 Built for FERPA- and HIPAA-sensitive work. It lowers risk; it is **not** a compliance guarantee.
 
 ## What it does
