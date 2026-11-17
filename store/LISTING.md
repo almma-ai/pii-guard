@@ -30,8 +30,10 @@ PII Guard lowers the risk of sharing personal data; it does not by itself make y
 
 **Graphics:**
 - Icon 128×128: inside the zip (`icons/icon128.png`)
-- Screenshots 1280×800: `store/screenshot-1-review.png`, `-2-typing.png`, `-3-originals.png`, `-4-settings.png`
-- Small promo tile 440×280: `store/promo-small-440x280.png`
+- Screenshots 1280×800 (in this order): `screenshot-1-review.png`, `screenshot-2-typing.png`, `screenshot-3-rightclick.png`, `screenshot-4-originals.png`, `screenshot-5-settings.png`
+- Small promo tile 440×280: `promo-small-440x280.png`
+- Marquee promo tile 1400×560 (optional): `promo-marquee-1400x560.png`
+- All are 24-bit PNG without transparency. Rebuild with `python3 store/make-store-images.py store/raw/rightclick.png`.
 
 ## Privacy practices tab (answers to confirm before submitting)
 

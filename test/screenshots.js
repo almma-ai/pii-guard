@@ -19,11 +19,11 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
   const text = 'Draft feedback for Jordan Ellis (student ID 20481937, DOB March 3, 2004).\nCopy Dr. Maria de la Cruz, and reply to j.ellis@uni.edu or (555) 123-4567.';
   await page.evaluate((t) => navigator.clipboard.writeText(t), text);
   await page.click('#prompt-textarea'); await page.keyboard.press('Control+V'); await page.waitForTimeout(600);
-  await page.screenshot({ path: path.join(OUT, 'screenshot-1-review.png') });
+  await page.screenshot({ path: path.join(OUT, 'raw', 'review.png') });
   await page.keyboard.press('Escape'); await page.waitForTimeout(200);
   await page.keyboard.type('Ask Jordan Ellis to email me from j.ellis@uni.edu about the March 3, 2024 lab');
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: path.join(OUT, 'screenshot-2-typing.png') });
+  await page.screenshot({ path: path.join(OUT, 'raw', 'typing.png') });
   // set up a key so "show originals" has something to restore
   await sw.evaluate(() => globalThis.__piiGuard.tokensFor([{ type: 'NAME', text: 'Jordan Ellis' }, { type: 'NUMBER', text: '(555) 123-4567' }, { type: 'NAME', text: 'Dr. Maria de la Cruz' }], true));
   await page.keyboard.press('Control+A'); await page.keyboard.press('Delete');
@@ -31,10 +31,10 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
   const tabId = await sw.evaluate(async () => Math.max(...(await chrome.tabs.query({})).map((t) => t.id)));
   await sw.evaluate(([id]) => globalThis.__piiGuard.handleMenuClick({ menuItemId: 'pii-guard-show', selectionText: 'x', frameId: 0 }, { id }), [tabId]);
   await page.waitForTimeout(700);
-  await page.screenshot({ path: path.join(OUT, 'screenshot-3-originals.png') });
+  await page.screenshot({ path: path.join(OUT, 'raw', 'originals.png') });
   const opt = await ctx.newPage();
   await opt.goto(`chrome-extension://${extId}/options.html`); await opt.waitForTimeout(600);
-  await opt.screenshot({ path: path.join(OUT, 'screenshot-4-settings.png') });
+  await opt.screenshot({ path: path.join(OUT, 'raw', 'settings.png') });
   await ctx.close();
   console.log('screenshots written to store/');
 })();
