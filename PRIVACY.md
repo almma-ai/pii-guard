@@ -40,4 +40,4 @@ If this policy changes, the new version will be published at this same address w
 
 ## Contact
 
-Almma: CONTACT-EMAIL-TO-BE-CONFIRMED
+Almma: info@almma.ai
