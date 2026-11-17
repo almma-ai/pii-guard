@@ -1,8 +1,8 @@
-# PII Guard privacy policy
+# Almma’s PII Guard privacy policy
 
 _Last updated: November 17, 2026_
 
-PII Guard is a browser extension published by Almma. It checks text you paste or type into the message box on claude.ai and chat.almma.ai for personal data, and offers to replace that data with placeholders before you send it.
+Almma’s PII Guard (PII Guard) is a browser extension published by Almma. It checks text you paste or type into the message box on claude.ai and chat.almma.ai for personal data, and offers to replace that data with placeholders before you send it.
 
 ## What PII Guard reads
 

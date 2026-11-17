@@ -5,7 +5,7 @@ import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 B = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
 R = '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'
-RED = (176, 0, 32); INK = (30, 30, 30); MUTED = (90, 90, 90); BG = (248, 244, 243); GREEN = (26, 127, 75)
+RED = (176, 0, 32); NAVY = (19, 0, 115); INK = (30, 30, 30); MUTED = (90, 90, 90); BG = (248, 244, 243); GREEN = (26, 127, 75)
 ICON = Image.open(os.path.join(HERE, '..', 'src', 'icons', 'icon512.png'))
 f = ImageFont.truetype
 
@@ -32,7 +32,8 @@ def marquee():
     W, H = 1400, 560
     im = Image.new('RGB', (W, H), BG); d = ImageDraw.Draw(im)
     ic = ICON.resize((220, 220), Image.LANCZOS); im.paste(ic, (90, 170), ic)
-    d.text((360, 150), 'PII Guard', font=f(B, 96), fill=RED)
+    d.text((364, 100), 'Almma’s', font=f(R, 44), fill=NAVY)
+    d.text((360, 150), 'PII Guard', font=f(B, 96), fill=NAVY)
     d.text((364, 268), 'Keep names, e-mails and numbers out of your AI chats.', font=f(R, 38), fill=INK)
     chip_y = 340
     for i, (a, b) in enumerate([('John Smith', '[NAME_1]'), ('555-123-4567', '[NUMBER_1]')]):
@@ -50,11 +51,11 @@ shot('screenshot-1-review.png', os.path.join(HERE, 'raw', 'review.png'), 'Catche
 shot('screenshot-2-typing.png', os.path.join(HERE, 'raw', 'typing.png'), 'Flags names, e-mails and dates as you type',
      'Sending pauses until you have reviewed what was found.')
 if rightclick:
-    shot('screenshot-3-rightclick.png', rightclick, 'Teach it new names in two clicks',
+    shot('screenshot-5-rightclick.png', rightclick, 'Teach it new names in two clicks',
          'Select a word, right-click, PII Guard → Always flag (or Never flag).', crop=(0, 120, 848, 906))
-shot('screenshot-4-originals.png', os.path.join(HERE, 'raw', 'originals.png'), 'Get the real names back',
+shot('screenshot-3-originals.png', os.path.join(HERE, 'raw', 'originals.png'), 'Get the real names back',
      '"Show originals" restores the AI’s reply in a private panel, never in the page.')
-shot('screenshot-5-settings.png', os.path.join(HERE, 'raw', 'settings.png'), 'Your rules, tested live',
+shot('screenshot-4-settings.png', os.path.join(HERE, 'raw', 'settings.png'), 'Your rules, tested live',
      'Switch rules on or off, add names and your own patterns. Includes HIPAA rules.')
 marquee()
 print('ok')

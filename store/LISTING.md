@@ -4,7 +4,7 @@ Upload: `dist/pii-guard-chrome-<version>.zip` (made by `node build.js`).
 
 ## Store listing tab
 
-**Name** (from the manifest): PII Guard (local)
+**Name** (from the manifest): Almma’s PII Guard
 
 **Summary** (from the manifest description, max 132 characters):
 Flags names, numbers and other personal data in the Claude and AlmmaGPT message box before sending. Runs only on your computer.
@@ -19,7 +19,7 @@ PII Guard checks what you paste or type into the message box on claude.ai and ch
 • Reverse it: select the AI's reply, right-click, "show originals" — the real names come back in a private panel, never in the page.
 • Your rules: switch each rule on or off, add names that must always (or never) be flagged, and add your own patterns.
 
-What it catches: names, e-mail addresses, phone and ID numbers, dates, street addresses, web and IP addresses, ages over 89, medical record, policy and account numbers, vehicle numbers — the text-based identifiers in the HIPAA Safe Harbor list, plus student names and IDs relevant to FERPA.
+What it catches: names, e-mail addresses, phone and ID numbers, dates, street addresses, web and IP addresses, ages over 89, medical record, policy and account numbers, and vehicle numbers. That covers many of the HIPAA identifiers that appear in text, plus student names and IDs relevant to FERPA.
 
 Private by design: PII Guard contains no network code. No servers, no analytics, no account. The placeholder key lives in memory and is erased when the browser closes.
 

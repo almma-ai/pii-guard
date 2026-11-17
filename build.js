@@ -13,12 +13,12 @@ const SITES = ['https://claude.ai/*', 'https://chat.almma.ai/*'];
 
 const base = {
   manifest_version: 3,
-  name: 'PII Guard (local)',
+  name: 'Almma\u2019s PII Guard',
   version: pkg.version,
   description: 'Flags names, numbers and other personal data in the Claude and AlmmaGPT message box before sending. Runs only on your computer.',
   permissions: ['contextMenus', 'storage'],
   icons: { 16: 'icons/icon16.png', 32: 'icons/icon32.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' },
-  action: { default_title: 'PII Guard', default_popup: 'popup.html',
+  action: { default_title: 'Almma\u2019s PII Guard', default_popup: 'popup.html',
     default_icon: { 16: 'icons/icon16.png', 32: 'icons/icon32.png' } },
   options_ui: { page: 'options.html', open_in_tab: true },
   content_scripts: [{

@@ -1,4 +1,4 @@
-# PII Guard
+# Almma’s PII Guard
 
 A browser extension that catches personal data (names, IDs, dates, addresses, phone numbers, e-mail addresses) in the message box of **claude.ai** and **chat.almma.ai** before it is sent, and replaces it with placeholders such as `[NAME_1]`. It runs entirely in your browser: the code contains no network calls.
 
@@ -71,7 +71,7 @@ node test/firefox.test.js                  # Firefox, via Selenium + geckodriver
 - Environment variables: `CHROME_PATH`, `PLAYWRIGHT_PATH`, `FIREFOX_BIN`, `GECKODRIVER`, `SELENIUM_PATH`.
 - `test/screenshots.js` makes the store screenshots from a neutral demo page.
 
-Last run (v0.3.0): 50 rule assertions, 71 Chrome checks (Chrome 153), 38 Firefox checks (Firefox 160), Mozilla `addons-linter`: 0 errors, 0 warnings.
+Last run (v0.3.1): 50 rule assertions, 71 Chrome checks (Chrome 153), 38 Firefox checks (Firefox 160), Mozilla `addons-linter`: 0 errors, 0 warnings.
 
 ## Layout
 
