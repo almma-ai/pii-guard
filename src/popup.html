@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PII Guard</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>PII Guard</h1>
+
+  <div id="access" class="access" hidden>
+    <strong>PII Guard is not allowed on the chat sites yet.</strong>
+    <p>Without this it cannot check anything you paste or type.</p>
+    <button id="allow">Allow on claude.ai and chat.almma.ai</button>
+  </div>
+  <p id="accessNote" class="note"></p>
+
+  <section>
+    <h2>Placeholder key <span class="muted">(this Chrome session only)</span></h2>
+    <p class="muted">Kept in memory only and erased when Chrome closes.</p>
+    <div id="key"></div>
+    <button id="forget">Forget all placeholders now</button>
+  </section>
+
+  <section>
+    <h2>Restore a reply</h2>
+    <p class="muted">Paste text that contains placeholders like [NAME_1]. Nothing here is sent anywhere.</p>
+    <textarea id="reply" rows="4" placeholder="Paste the AI's reply here"></textarea>
+    <div id="restored" class="out"></div>
+    <button id="copy" hidden>Copy restored text</button>
+  </section>
+
+  <section>
+    <button id="settings">Settings: rules, always / never flag lists, your own patterns</button>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

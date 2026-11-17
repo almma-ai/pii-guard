@@ -1,0 +1,5 @@
+/* Red marking for flagged text inside rich-text message boxes. */
+::highlight(pii-guard) {
+  background-color: rgba(255, 0, 0, 0.16);
+  text-decoration: underline wavy red;
+}

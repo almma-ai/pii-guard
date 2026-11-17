@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Chat</title>
+<link rel="stylesheet" href="/demo.css"></head>
+<body>
+<div class="app">
+  <aside><div class="logo">AI Chat</div><div class="item active">Course feedback draft</div><div class="item">Lab report outline</div><div class="item">Clinic letter</div></aside>
+  <main>
+    <div class="thread" id="thread">
+      <div class="msg user">Help me write feedback for a student who missed two deadlines.</div>
+      <div class="msg bot" id="reply">Here is a draft for [NAME_1]: "Dear [NAME_1], I noticed the last two assignments arrived after the deadline. Please contact me at [NUMBER_1] or stop by during office hours so we can plan the rest of the term." You may also want to copy [NAME_2], the program advisor.</div>
+    </div>
+    <form id="composer"><textarea id="prompt-textarea" rows="3" placeholder="Message the assistant"></textarea><button id="send-button" aria-label="Send message" type="submit">Send</button></form>
+  </main>
+</div>
+<script src="/demo.js"></script>
+</body></html>

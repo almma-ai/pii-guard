@@ -1,0 +1,11 @@
+{
+  "name": "pii-guard",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Local Chrome/Firefox extension that flags and replaces personal data before it is sent to AI chat sites.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node test/patterns.test.js && node build.js && node test/chrome.test.js"
+  }
+}

@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PII Guard settings</title>
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>PII Guard settings</h1>
+    <span id="saved" class="saved" aria-live="polite"></span>
+  </header>
+  <p class="muted">Changes save automatically and apply to open Claude and AlmmaGPT tabs right away. Everything here stays on this computer.</p>
+
+  <section>
+    <h2>Quick setup</h2>
+    <button id="presetAll">Everything on (recommended for FERPA and HIPAA)</button>
+    <button id="presetBasic">Names, e-mail and long numbers only</button>
+  </section>
+
+  <section>
+    <h2>General</h2>
+    <div class="rules" id="generalRules"></div>
+    <label class="inline">Flag numbers with at least
+      <input id="minDigits" type="number" min="1" max="20" step="1"> digits</label>
+    <p class="muted">5 catches phone numbers, SSNs, ZIP codes and student IDs while leaving prices, scores and room numbers alone.</p>
+  </section>
+
+  <section>
+    <h2>HIPAA identifiers</h2>
+    <p class="muted">Covers the text-based identifiers in the HIPAA Safe Harbor list beyond names, phone numbers and e-mail.</p>
+    <div class="rules" id="hipaaRules"></div>
+  </section>
+
+  <section class="two">
+    <div>
+      <h2>Always flag</h2>
+      <p class="muted">One name or word per line, any capitalization. Right-click &rarr; "PII Guard: always flag" adds here.</p>
+      <textarea id="custom" rows="8" spellcheck="false"></textarea>
+    </div>
+    <div>
+      <h2>Never flag</h2>
+      <p class="muted">One per line. Exact matches are skipped, and these words are trimmed off the edges of names.</p>
+      <textarea id="ignore" rows="8" spellcheck="false"></textarea>
+    </div>
+  </section>
+
+  <section>
+    <h2>Your own patterns</h2>
+    <p class="muted">A label (becomes the placeholder, e.g. COURSE &rarr; [COURSE_1]) and a regular expression. Example: label <code>COURSE</code>, pattern <code>FIN\s?\d{3}</code>.</p>
+    <table id="patterns">
+      <thead><tr><th>Label</th><th>Pattern (regular expression)</th><th>Ignore case</th><th>On</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <button id="addPattern">Add a pattern</button>
+  </section>
+
+  <section>
+    <h2>Try it</h2>
+    <p class="muted">Type or paste sample text. Flagged parts are marked using the settings above. Nothing here is sent anywhere.</p>
+    <textarea id="sample" rows="5" spellcheck="false">Dr. Maria de la Cruz saw John Smith (MRN: A4471, DOB March 3, 1950) at 123 Main Street, Vienna, VA 22180. Call (555) 123-4567 or e-mail j.smith@uni.edu. Room 204, score 87.5.</textarea>
+    <div id="result" class="result"></div>
+  </section>
+</main>
+<script src="roster.js"></script>
+<script src="patterns.js"></script>
+<script src="options.js"></script>
+</body>
+</html>
