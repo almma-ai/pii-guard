@@ -1,5 +1,7 @@
 # Almma’s PII Guard
 
+<a href="https://www.producthunt.com/products/almma-s-pii-guard?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-almma-s-pii-guard" target="_blank" rel="noopener noreferrer"><img alt="Almma's PII Guard - Catch personal data before it reaches your AI chat | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1328130&amp;theme=light&amp;t=1795618959117"></a>
+
 A browser extension that catches personal data (names, IDs, dates, addresses, phone numbers, e-mail addresses) in the message box of **claude.ai** and **chat.almma.ai** before it is sent, and replaces it with placeholders such as `[NAME_1]`. It runs entirely in your browser: the code contains no network calls.
 
 Demo video (73 s): https://www.youtube.com/watch?v=k2dVQsBeQo4
