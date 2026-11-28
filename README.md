@@ -81,7 +81,7 @@ node test/firefox.test.js                  # Firefox, via Selenium + geckodriver
 
 Last run (v0.4.0): 50 rule assertions, 125 Chrome checks (Chrome 153), 75 Firefox checks (Firefox 161), Mozilla `addons-linter`: 0 errors, 0 warnings.
 
-Checked by hand on the real site: on 27 November 2026 the v0.4.0 page script was run on the live chatgpt.com in Chrome (red marks, Enter / Send / form submit stopped, paste held back, replacement, sending after review, the edit box, a writing block, "show originals"). The packaged extension and Firefox were tested on the stand-in pages only.
+Checked by hand on the real sites, in Chrome, on 27 November 2026: the v0.4.0 page script was run on the live chatgpt.com (red marks, Enter / Send / form submit stopped, paste held back, replacement, sending after review, the edit box, a writing block, "show originals"). On the live claude.ai the three parts that changed in 0.4.0 were checked on their own: reading the text of the box, finding the box from the Send button, and the paste event that puts text in. The packaged extension and Firefox were tested on the stand-in pages only.
 
 ## Layout
 
