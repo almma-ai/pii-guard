@@ -1,11 +1,12 @@
 // PII Guard - background worker.
 // Holds the placeholder key ([NAME_1] = original) and the right-click menu.
 // The key lives in chrome.storage.session: kept in memory, never written to disk,
-// erased when Chrome closes, and not readable by the web pages themselves.
+// erased when the browser closes, and not readable by the web pages themselves.
 // This file contains no code that transmits data anywhere.
 'use strict';
 
-const SITES = ['https://claude.ai/*', 'https://chat.almma.ai/*'];
+// The sites it runs on are listed once, in build.js, and read back from the manifest here.
+const SITES = (chrome.runtime.getManifest().content_scripts || []).flatMap((c) => c.matches || []);
 const MENU_FLAG = 'pii-guard-flag';
 const MENU_IGNORE = 'pii-guard-ignore';
 const MENU_SHOW = 'pii-guard-show';

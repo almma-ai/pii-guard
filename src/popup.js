@@ -65,6 +65,8 @@ $('settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
 // Firefox lets people withhold or later remove site access; check it and offer to grant it.
 const ORIGINS = (chrome.runtime.getManifest().content_scripts || []).flatMap((c) => c.matches || []);
+const HOSTS = [...new Set(ORIGINS.map((o) => { try { return new URL(o.replace('*', '')).hostname; } catch (e) { return o; } }))];
+$('allow').textContent = 'Allow on ' + (HOSTS.length > 1 ? HOSTS.slice(0, -1).join(', ') + ' and ' + HOSTS[HOSTS.length - 1] : HOSTS[0]);
 async function checkAccess() {
   let has = true;
   try { has = await chrome.permissions.contains({ origins: ORIGINS }); } catch (e) { has = true; }
@@ -74,7 +76,7 @@ async function checkAccess() {
 $('allow').addEventListener('click', async () => {
   let granted = false;
   try { granted = await chrome.permissions.request({ origins: ORIGINS }); } catch (e) { granted = false; }
-  if (await checkAccess() || granted) $('accessNote').textContent = 'Allowed. Reload your Claude and AlmmaGPT tabs.';
+  if (await checkAccess() || granted) $('accessNote').textContent = 'Allowed. Reload your open chat tabs.';
   else { $('access').hidden = false; $('accessNote').textContent = 'Not allowed. You can also allow it in the add-ons manager.'; }
 });
 

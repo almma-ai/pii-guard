@@ -21,21 +21,75 @@
     }
     return null;
   }
+  // What differs from site to site (read from the live pages in November 2026).
+  //   home: a site can have rich-text boxes where Enter only starts a new line (ChatGPT's writing blocks and
+  //         canvas; Gemini has a canvas too, though it could not be opened to look at). There a message box
+  //         is told apart by what it sits in. If nothing on the page sits in one, every rich-text box is
+  //         treated as a message box.
+  //   send: Send buttons marked by a class rather than by a name, which works in every interface language.
+  //         Gemini puts the class on a wrapper element: the arrow of the message box while it holds text (the
+  //         same arrow is a Stop button while a reply is being written), and "Update" in the box for editing
+  //         a sent message. Microsoft Copilot puts it on the Send button itself.
+  var SITE = /(^|\.)chatgpt\.com$/.test(location.hostname) ? { home: 'form' }
+    : /(^|\.)gemini\.google\.com$/.test(location.hostname)
+      ? { home: 'rich-textarea', send: '.send-button.submit > button, .update-button > button' }
+      : /(^|\.)copilot\.cloud\.microsoft$/.test(location.hostname) ? { send: '.fai-SendButton' }
+        : {};
   function isMessageBox(el) {     // boxes where pressing Enter sends
-    return el.isContentEditable || el.id === 'prompt-textarea';
+    if (el.id === 'prompt-textarea') return true;
+    if (!el.isContentEditable) return false;
+    if (SITE.home && !el.closest(SITE.home) && document.querySelector(SITE.home + ' [contenteditable="true"]')) return false;
+    return true;
+  }
+  function isShown(el) {          // takes up room on the page, and is not the hidden helper box that the Quill editor (Gemini) keeps for pasting
+    return el.getClientRects().length > 0 && !el.classList.contains('ql-clipboard');
+  }
+  function boxesIn(container) {   // the visible text boxes inside one part of the page
+    var out = [];
+    var nodes = container.querySelectorAll('textarea, [contenteditable]');
+    for (var i = 0; i < nodes.length; i++) {
+      var root = editableRoot(nodes[i]);
+      if (root && isShown(root) && out.indexOf(root) === -1) out.push(root);
+    }
+    return out;
+  }
+  function nearestBoxes(node, maxLevels) {   // the text boxes closest to a button: the smallest part of the page around it that has one
+    var level = 0;
+    for (var el = node.parentElement; el && (!maxLevels || level < maxLevels); el = el.parentElement, level++) {
+      var boxes = boxesIn(el);
+      if (boxes.length) return boxes;
+    }
+    return [];
   }
 
   // ---------- reading text ----------
-  var BLOCK = /^(P|DIV|LI|UL|OL|H[1-6]|PRE|BLOCKQUOTE|TR|BR)$/;
+  var BLOCK = /^(P|DIV|LI|UL|OL|H[1-6]|PRE|BLOCKQUOTE|TR)$/;
+  var BLOCK_SELECTOR = 'p,div,li,ul,ol,h1,h2,h3,h4,h5,h6,pre,blockquote,tr';
+  function isFillerBreak(br, root) {   // the <br> editors keep at the end of a block so that an empty line has height
+    if (br.classList.contains('ProseMirror-trailingBreak')) return true;
+    for (var n = br; n && n !== root && !(n !== br && BLOCK.test(n.tagName)); n = n.parentNode) {
+      for (var s = n.nextSibling; s; s = s.nextSibling) {
+        if (s.nodeType === 1 || (s.nodeType === 3 && s.data.length)) return false;
+      }
+    }
+    return true;
+  }
+  function isHiddenText(node, root) {   // text an editor keeps out of sight and away from screen readers (Copilot keeps two invisible characters there)
+    for (var el = node.parentElement; el && el !== root; el = el.parentElement) if (el.getAttribute('aria-hidden') === 'true') return true;
+    return false;
+  }
   function collect(root) {         // rich-text box -> plain text plus a map back to its text nodes
     var text = '', segs = [];
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
     var n;
     while ((n = walker.nextNode())) {
       if (n.nodeType === 3) {
-        if (n.data.length) { segs.push({ node: n, start: text.length, len: n.data.length }); text += n.data; }
-      } else if (BLOCK.test(n.tagName) && text.length && text[text.length - 1] !== '\n') {
-        text += '\n';
+        if (n.data.length && !isHiddenText(n, root)) { segs.push({ node: n, start: text.length, len: n.data.length }); text += n.data; }
+      } else if (n.tagName === 'BR') {
+        if (!isFillerBreak(n, root)) text += '\n';
+      } else if (BLOCK.test(n.tagName) && text.length) {
+        if (text[text.length - 1] !== '\n') text += '\n';                       // end the line before this block
+        if (!n.textContent.length && !n.querySelector(BLOCK_SELECTOR)) text += '\n';   // an empty block is a blank line
       }
     }
     return { text: text, segs: segs };
@@ -84,7 +138,7 @@
       mirrorInner.appendChild(s);
       pos = m.end;
     });
-    mirrorInner.appendChild(document.createTextNode(text.slice(pos) + '​'));
+    mirrorInner.appendChild(document.createTextNode(text.slice(pos) + '\u200b'));
   }
   function markRich(root, c, matches) {
     if (mirrorBox) mirrorBox.style.display = 'none';
@@ -125,6 +179,13 @@
   // ---------- putting text into the box ----------
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function squash(s) { return s.replace(/\s+/g, ''); }
+  // The text is handed to a rich-text box as a paste event, so the editor treats it like any other paste.
+  // Chrome reads it from clipboardData. Firefox ignores that field and reads data / dataType instead.
+  function pasteEvent(text) {
+    var dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    return new ClipboardEvent('paste', { clipboardData: dt, dataType: 'text/plain', data: text, bubbles: true, cancelable: true });
+  }
   async function insertInto(root, text, where) {   // where: {all:true} or a saved caret
     var before = squash(getText(root));
     root.focus();
@@ -144,14 +205,12 @@
       if (haveCaret) sel.addRange(where.range);
       else { sel.selectAllChildren(root); if (!where.all) sel.collapseToEnd(); }
       await sleep(60);                                    // let the editor notice the selection
-      var dt = new DataTransfer();
-      dt.setData('text/plain', text);
-      var ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+      var ev = pasteEvent(text);
       passThrough.add(ev);
       var unhandled = root.dispatchEvent(ev);
       if (unhandled) document.execCommand('insertText', false, text);
     }
-    // Some editors (e.g. ProseMirror in Firefox) insert a moment later; wait up to 1.5 s before calling it a failure.
+    // Some editors show the text a moment later; wait up to 1.5 s before calling it a failure.
     var wanted = squash(text);
     var landed = function () {
       var after = squash(getText(root));
@@ -286,7 +345,7 @@
       });
       preview.appendChild(document.createTextNode(job.text.slice(pos)));
     }
-    function anonymizerPreview(m) { return m.text + ' → ' + tokenOf(m); }
+    function anonymizerPreview(m) { return m.text + ' \u2192 ' + tokenOf(m); }
     function drawList() {
       list.textContent = '';
       groups.forEach(function (g) {
@@ -294,7 +353,7 @@
         var cb = el('input'); cb.type = 'checkbox'; cb.checked = g.on;
         cb.addEventListener('change', function () { g.on = cb.checked; drawPreview(); });
         row.appendChild(cb);
-        row.appendChild(el('span', 'type', g.type + (g.count > 1 ? ' ×' + g.count : '')));
+        row.appendChild(el('span', 'type', g.type + (g.count > 1 ? ' \u00d7' + g.count : '')));
         row.appendChild(el('span', 'orig', g.text));
         row.appendChild(el('span', 'tok', tokenOf(g)));
         list.appendChild(row);
@@ -415,7 +474,7 @@
       });
       body.appendChild(preview);
       if (res.unknown) body.appendChild(el('div', 'note', res.unknown + ' placeholder' + (res.unknown === 1 ? ' is' : 's are') +
-        ' not in the key (shown in yellow). The key is erased when Chrome closes.'));
+        ' not in the key (shown in yellow). The key is erased when the browser closes.'));
       var copyBox = el('div');
       body.appendChild(copyBox);
       var foot = el('div', 'foot');
@@ -485,6 +544,10 @@
     if (!panelOpen) openPanel({ mode: 'send', text: text, matches: matches, root: root, caret: null });
     return true;
   }
+  function guardBoxes(e, boxes) {         // stops at the first box that holds flagged text
+    for (var i = 0; i < boxes.length; i++) if (guardSend(e, boxes[i])) return true;
+    return false;
+  }
   // Keys pressed inside the review panel stay private to it.
   ['keydown', 'keyup', 'keypress'].forEach(function (type) {
     window.addEventListener(type, function (e) {
@@ -505,20 +568,28 @@
     var root = editableRoot(e.target);
     if (root && isMessageBox(root)) guardSend(e, root);
   }, true);
+  // A Send button is recognised in four ways, so that it also works when the site is not shown in English:
+  // the site's own marker (SITE.send above), it submits the form the message box is in, it is named "send"
+  // in the page code (its label, test id or id), or it is a short button labelled "Send" right next to a
+  // text box (as when editing an earlier message).
+  var SEND_NAME = /send|submit|enviar|envoyer|senden|invia|verzend|verstuur|skicka|wy\u015blij|\u043e\u0442\u043f\u0440\u0430\u0432|g\u00f6nder|\u9001\u4fe1|\u53d1\u9001|\u767c\u9001|\u50b3\u9001|\ubcf4\ub0b4/i;
+  var NEAR = 5;   // how many levels up from a labelled button a text box may be
   window.addEventListener('click', function (e) {
     if (fromPanel(e) || !e.target || !e.target.closest) return;
-    var btn = e.target.closest('button');
+    var btn = e.target.closest('button, input[type="submit"], [role="button"]');
     if (!btn) return;
-    var label = (btn.getAttribute('aria-label') || '') + ' ' + (btn.getAttribute('data-testid') || '') + ' ' + btn.id;
-    if (!/send/i.test(label)) return;
-    var root = activeRoot && activeRoot.isConnected ? activeRoot : null;
-    if (root && isMessageBox(root)) guardSend(e, root);
+    var form = btn.form || btn.closest('form');
+    var named = [btn.getAttribute('aria-label'), btn.getAttribute('data-testid'), btn.getAttribute('data-test-id'), btn.id,
+      btn.getAttribute('title')].join(' ');
+    var shown = btn.tagName === 'INPUT' ? btn.value : (btn.textContent || '').trim();
+    if ((SITE.send && btn.matches(SITE.send)) || SEND_NAME.test(named)) guardBoxes(e, nearestBoxes(btn));
+    else if (form && btn.getAttribute('type') === 'submit') guardBoxes(e, boxesIn(form));
+    else if (/^(BUTTON|INPUT)$/.test(btn.tagName) && shown.length <= 30 && SEND_NAME.test(shown)) guardBoxes(e, nearestBoxes(btn, NEAR));
   }, true);
   window.addEventListener('submit', function (e) {
     var form = e.target;
     if (!form || !form.querySelectorAll) return;
-    var boxes = form.querySelectorAll('textarea');
-    for (var i = 0; i < boxes.length; i++) if (guardSend(e, boxes[i])) return;
+    guardBoxes(e, boxesIn(form));
   }, true);
 
   // ---------- keep the red marks current ----------

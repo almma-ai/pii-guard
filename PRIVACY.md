@@ -1,12 +1,12 @@
 # Almma’s PII Guard privacy policy
 
-_Last updated: November 17, 2026_
+_Last updated: November 28, 2026_
 
-Almma’s PII Guard (PII Guard) is a browser extension published by Almma. It checks text you paste or type into the message box on claude.ai and chat.almma.ai for personal data, and offers to replace that data with placeholders before you send it.
+Almma’s PII Guard (PII Guard) is a browser extension published by Almma. It checks text you paste or type into the message box on claude.ai, chatgpt.com, gemini.google.com, copilot.cloud.microsoft and chat.almma.ai for personal data, and offers to replace that data with placeholders before you send it.
 
 ## What PII Guard reads
 
-- Text you paste, drop or type into the message box on claude.ai and chat.almma.ai.
+- Text you paste, drop or type into the message box, or into another text box, on claude.ai, chatgpt.com, gemini.google.com, copilot.cloud.microsoft and chat.almma.ai.
 - Text you select on those sites when you use its right-click menu.
 
 It does not run on any other website.
@@ -37,7 +37,7 @@ What you choose to send to an AI chat service after reviewing is sent by that we
 
 ## Permissions
 
-- **Site access to claude.ai and chat.almma.ai:** needed to check the message box on those two sites.
+- **Site access to claude.ai, chatgpt.com, gemini.google.com, copilot.cloud.microsoft and chat.almma.ai:** needed to check the message box on those five sites.
 - **contextMenus:** adds the "always flag", "never flag" and "show originals" items to the right-click menu.
 - **storage:** keeps your settings and lists on your computer, and the placeholder key in session memory.
 

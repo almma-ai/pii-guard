@@ -19,19 +19,30 @@ fs.mkdirSync(SHOTS, { recursive: true });
 
 // 1. Firefox build that also runs on the local test pages
 const TMP = '/tmp/pii-guard-fftest';
-execFileSync('node', [path.join(ROOT, 'build.js')], { env: { ...process.env, PII_GUARD_DIST: TMP, PII_GUARD_EXTRA_MATCHES: 'http://localhost/*' } });
+execFileSync('node', [path.join(ROOT, 'build.js')], { env: { ...process.env, PII_GUARD_DIST: TMP, PII_GUARD_EXTRA_MATCHES: 'http://localhost/*,http://chatgpt.com/*,http://gemini.google.com/*,http://copilot.cloud.microsoft/*' } });
 const XPI = fs.readdirSync(TMP).find((f) => f.startsWith('pii-guard-firefox') && f.endsWith('.zip'));
 
 // 2. local web server for the stand-in pages
+// The pages are served with a strict Content-Security-Policy, as the real chat sites do.
+const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'";
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const hits = [];
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, BASE);
-  const f = u.pathname === '/rich' ? 'rich.html' : u.pathname === '/plain' ? 'plain.html' : u.pathname.slice(1);
+  hits.push(req.headers.host + u.pathname);
+  const f = u.pathname === '/rich' ? 'rich.html' : u.pathname === '/plain' ? 'plain.html' : u.pathname === '/gpt' ? 'gpt.html' : u.pathname === '/gemini' ? 'gemini.html' : u.pathname === '/copilot' ? 'copilot.html' : u.pathname.slice(1);
   const full = path.join(SITE, f);
   if (!full.startsWith(SITE) || !fs.existsSync(full)) { res.writeHead(404); return res.end('nf'); }
-  res.writeHead(200, { 'Content-Type': types[path.extname(full)] || 'text/plain' });
+  res.writeHead(200, { 'Content-Type': types[path.extname(full)] || 'text/plain', 'Content-Security-Policy': CSP });
   res.end(fs.readFileSync(full));
 }).listen(PORT);
+// The ChatGPT, Gemini and Copilot stand-ins are opened as http://chatgpt.com:PORT, http://gemini.google.com:PORT and
+// http://copilot.cloud.microsoft:PORT; Firefox is
+// told to resolve those names to this computer, so nothing goes to the real sites. PII Guard has rules that apply on
+// those host names only.
+const GPT = 'http://chatgpt.com:' + PORT;
+const GEM = 'http://gemini.google.com:' + PORT;
+const COP = 'http://copilot.cloud.microsoft:' + PORT;
 
 (async () => {
   const options = new firefox.Options()
@@ -39,6 +50,11 @@ const server = http.createServer((req, res) => {
     .addArguments('-headless')
     .setPreference('extensions.webextensions.uuids', JSON.stringify({ 'pii-guard@almma.ai': UUID }))
     .setPreference('dom.events.testing.asyncClipboard', true)
+    .setPreference('network.dns.localDomains', 'chatgpt.com,gemini.google.com,copilot.cloud.microsoft')
+    .setPreference('dom.securecontext.allowlist', 'chatgpt.com,gemini.google.com,copilot.cloud.microsoft')   // so the test can fill the clipboard on those pages
+    .setPreference('network.stricttransportsecurity.preloadlist', false)
+    .setPreference('dom.security.https_first', false)
+    .setPreference('dom.security.https_only_mode', false)
     .setPreference('extensions.webextOptionalPermissionPrompts', false);   // auto-accept the "Allow" prompt in this headless test
   options.windowSize({ width: 1000, height: 700 });
   const service = new firefox.ServiceBuilder(process.env.GECKODRIVER || 'geckodriver').addArguments('--allow-system-access');
@@ -104,14 +120,23 @@ const server = http.createServer((req, res) => {
     for (const site of [
       { name: 'rich editor (stands in for claude.ai)', url: BASE + '/rich', box: '.ProseMirror', send: '#send',
         read: 'return window.wrappedJSObject ? window.wrappedJSObject.__editor.getText({ blockSeparator: "\\n" }) : window.__editor.getText({ blockSeparator: "\\n" })' },
+      { name: 'ChatGPT-style editor in a form (stands in for chatgpt.com)', tag: 'ff-gpt', url: GPT + '/gpt', box: '#ed .ProseMirror', send: '#composer button[type="submit"]',
+        read: 'return (window.wrappedJSObject || window).__editor.getText({ blockSeparator: "\\n" })' },
+      { name: 'Quill editor in a rich-textarea (stands in for gemini.google.com)', tag: 'ff-gemini', url: GEM + '/gemini', box: '#composer .ql-editor', send: '#send-slot button',
+        read: 'return (window.wrappedJSObject || window).__quill.getText().replace(/\\n$/, "")' },
+      { name: 'Lexical editor with no form (stands in for copilot.cloud.microsoft)', tag: 'ff-copilot', keyboard: true, url: COP + '/copilot', box: '#m365-chat-editor-target-element', send: '#send-slot button',
+        read: 'return (window.wrappedJSObject || window).__lexicalText()' },
       { name: 'React textarea (stands in for chat.almma.ai)', url: BASE + '/plain', box: '#prompt-textarea', send: '#send-button',
         read: 'return window.__state' },
     ]) {
       console.log('\n' + site.name);
-      const tag = site.box === '.ProseMirror' ? 'ff-rich' : 'ff-plain';
+      const tag = site.tag || (site.box === '.ProseMirror' ? 'ff-rich' : 'ff-plain');
       await d.get(site.url);
       await sleep(800);
       const box = await d.findElement({ css: site.box });
+      // Typing: a Lexical editor rebuilds its content after the first key, and WebDriver's element-level typing then
+      // loses its target, so there the keys go through the keyboard to the focused box, as a person types.
+      const typeIn = async (t) => { if (site.keyboard) { await box.click(); await d.actions().sendKeys(t).perform(); } else await box.sendKeys(t); };
       const read = () => d.executeScript(site.read);
       const panelOpen = () => d.executeScript('return !!document.activeElement && document.activeElement.tagName === "PII-GUARD-ROOT"');
       const sent = () => d.executeScript('return window.__sent.slice()');
@@ -132,6 +157,8 @@ const server = http.createServer((req, res) => {
       ok(await d.executeScript('return typeof CSS !== "undefined" && "highlights" in CSS'), 'Firefox has the highlight feature used for red marks');
       await paste(FLAGGED);
       ok(await panelOpen(), 'a real Ctrl+V paste of flagged text opens the review panel');
+      ok(await d.executeScript('const st = document.createElement("style"); st.textContent = "p{}"; document.head.appendChild(st); const blocked = !st.sheet; st.remove(); return blocked;'), "the page's security header blocks inline styles, as on the real sites");
+      ok(await d.executeScript('return document.elementFromPoint(5, 5).tagName === "PII-GUARD-ROOT"'), 'yet the review panel covers the page (its own styles work)');
       ok((await read()) === '', 'the message box is still empty while the panel is open');
       await d.takeScreenshot().then((b) => fs.writeFileSync(`${SHOTS}/${tag}-panel.png`, b, 'base64'));
       await enter(); await sleep(600);
@@ -145,7 +172,7 @@ const server = http.createServer((req, res) => {
       ok(!(await panelOpen()) && (await read()) === 'Ask Lena Fischer today', 'Ctrl+Enter inserts the original unchanged');
 
       await clear();
-      await box.sendKeys('Please email Priya Patel about invoice 4471 today');
+      await typeIn('Please email Priya Patel about invoice 4471 today');
       await sleep(1000);
       await d.takeScreenshot().then((b) => fs.writeFileSync(`${SHOTS}/${tag}-typed.png`, b, 'base64'));
       await enter(); await sleep(500);
@@ -156,16 +183,192 @@ const server = http.createServer((req, res) => {
       ok((await sent())[0] === 'Please email [NAME_3] about invoice 4471 today', 'second Enter sends it');
 
       await clear();
-      await box.sendKeys('Room 204 with Ana Lima');
+      await typeIn('Room 204 with Ana Lima');
       await d.findElement({ css: site.send }).click(); await sleep(500);
       ok((await sent()).length === 0 && (await panelOpen()), 'clicking Send is stopped');
       await d.actions().sendKeys(Key.ESCAPE).perform(); await sleep(300);
       ok(!(await panelOpen()) && (await read()) === 'Room 204 with Ana Lima', 'Escape cancels and leaves the text alone');
 
       await clear();
-      await box.sendKeys('seen at 123 Main Street on March 3, 2024, MRN A4471');
+      await typeIn('seen at 123 Main Street on March 3, 2024, MRN A4471');
       await enter(); await sleep(500); await enter(); await sleep(600);
       ok(/^seen at \[ADDRESS_\d+\] on \[DATE_\d+\], MRN \[ID_\d+\]$/.test(await read()), 'HIPAA items replaced: ' + JSON.stringify(await read()));
+
+      await clear();
+      await paste('if ok:\n    call Greta Holm  now');
+      await enter();
+      for (let t = 0; t < 3000 && !/\[NAME_\d+\]/.test(await read()); t += 100) await sleep(100);
+      ok(/^if ok:\n    call \[NAME_\d+\]  now$/.test(await read()), 'indentation and double spaces are kept as ordinary spaces: ' + JSON.stringify(await read()));
+    }
+
+    console.log('\nChatGPT specifics (stand-in copied from the live page, opened under the chatgpt.com host name)');
+    {
+      await d.get(GPT + '/gpt'); await sleep(800);
+      ok((await d.executeScript('return location.hostname')) === 'chatgpt.com' && hits.includes('chatgpt.com:' + PORT + '/gpt'), 'the page is the local stand-in, reached under the name chatgpt.com');
+      const panelOpen = () => d.executeScript('return !!document.activeElement && document.activeElement.tagName === "PII-GUARD-ROOT"');
+      const text = (name) => d.executeScript('return (window.wrappedJSObject || window)[arguments[0]].getText({ blockSeparator: "\\n" })', name);
+      const list = (name) => d.executeScript('return (window.wrappedJSObject || window)[arguments[0]].slice()', name);
+      const enter = () => d.actions().sendKeys(Key.ENTER).perform();
+      const shiftEnter = () => d.actions().keyDown(Key.SHIFT).sendKeys(Key.ENTER).keyUp(Key.SHIFT).perform();
+      const esc = async () => { await d.actions().sendKeys(Key.ESCAPE).perform(); await sleep(300); };
+      const clip = (t) => d.executeAsyncScript('const done = arguments[arguments.length - 1]; navigator.clipboard.writeText(arguments[0]).then(() => done(true), (e) => done(String(e)));', t);
+      const ctrlV = async () => { await d.actions().keyDown(Key.CONTROL).sendKeys('v').keyUp(Key.CONTROL).perform(); await sleep(500); };
+      const box = await d.findElement({ css: '#ed .ProseMirror' });
+      const SEND = '#composer button[type="submit"]';
+      // Firefox puts the text into the editor a moment after the panel closes, so wait for it instead of guessing a delay.
+      const landed = async (name) => { for (let t = 0; t < 3000; t += 100) { if (/\[NAME_\d+\]/.test(await text(name))) return; await sleep(100); } };
+
+      await clip('Dear team,\n\nplease see the notes.');
+      await box.click(); await ctrlV();
+      ok(!(await panelOpen()) && (await text('__editor')) === 'Dear team,\n\nplease see the notes.', 'clean pasted text with a blank line goes straight in');
+      await shiftEnter(); await shiftEnter();
+      await d.actions().sendKeys('Ask Nora Lindqvist first.').perform(); await sleep(900);
+      await d.takeScreenshot().then((b) => fs.writeFileSync(`${SHOTS}/ff-gpt-blank-lines.png`, b, 'base64'));
+      await enter(); await sleep(500);
+      ok((await list('__sent')).length === 0 && (await panelOpen()), 'Enter with a typed name is stopped');
+      await enter(); await landed('__editor');
+      const kept = await text('__editor');
+      ok(/^Dear team,\n\nplease see the notes\.\n\nAsk \[NAME_\d+\] first\.$/.test(kept), 'blank lines (pasted and typed) are kept when the name is replaced in the box: ' + JSON.stringify(kept));
+      await box.click(); await enter(); await sleep(400);
+      ok((await list('__sent'))[0] === kept, 'the reviewed text then sends on Enter');
+
+      await box.click(); await d.actions().sendKeys('Meet Omar Haddad at 3').perform();
+      await d.executeScript('document.getElementById("composer").requestSubmit()'); await sleep(500);
+      ok((await list('__sent')).length === 1 && (await panelOpen()), 'a form submit started by the page itself is stopped');
+      await esc();
+      await d.findElement({ css: '#dictate' }).click(); await sleep(300);
+      ok(!(await panelOpen()) && (await list('__sent')).length === 1, 'other buttons in the form (Dictate) do not open the panel');
+      await box.click();
+      await d.actions().keyDown(Key.CONTROL).sendKeys('a').keyUp(Key.CONTROL).sendKeys(Key.DELETE).perform();
+
+      const writing = await d.findElement({ css: '#writing .ProseMirror' });
+      await writing.click(); await d.actions().sendKeys('Draft for Lena Fischer').perform();
+      await enter(); await d.actions().sendKeys('second line').perform(); await sleep(500);
+      ok(!(await panelOpen()) && (await text('__writing')) === 'Draft for Lena Fischer\nsecond line', 'in a writing block, Enter starts a new line and is not stopped');
+      await clip(' cc Tomas Novak'); await ctrlV();
+      ok(await panelOpen(), 'a paste into the writing block is still held back');
+      await enter(); await landed('__writing');
+      ok(/second line cc \[NAME_\d+\]$/.test(await text('__writing')), 'and goes in with a placeholder: ' + JSON.stringify(await text('__writing')));
+      await box.click(); await d.actions().sendKeys('thanks, all good').perform();
+      await d.findElement({ css: SEND }).click(); await sleep(400);
+      ok(!(await panelOpen()) && (await list('__sent'))[1] === 'thanks, all good', 'a name left in the writing block does not stop a clean message');
+
+      const edit = await d.findElement({ css: '#edit-ed .ProseMirror' });
+      await edit.click(); await d.actions().sendKeys('Please move Ana Lima to Friday').perform();
+      await enter(); await sleep(500);
+      ok((await list('__edits')).length === 0 && (await panelOpen()), 'edit box: Enter is stopped');
+      await esc();
+      await d.findElement({ css: '#edit-form button[type="submit"]' }).click(); await sleep(500);
+      ok((await list('__edits')).length === 0 && (await panelOpen()), 'edit box: its Send button is stopped');
+      await enter(); await landed('__edit');
+      await d.findElement({ css: '#edit-form button[type="submit"]' }).click(); await sleep(400);
+      ok(/^Please move \[NAME_\d+\] to Friday$/.test((await list('__edits'))[0] || ''), 'edit box: after review the edit sends with a placeholder: ' + JSON.stringify(await list('__edits')));
+
+      await d.get(GPT + '/gpt?send=Odeslat'); await sleep(800);
+      const box2 = await d.findElement({ css: '#ed .ProseMirror' });
+      await box2.click(); await d.actions().sendKeys('Zavolat Nora Lindqvist').perform(); await sleep(300);
+      ok((await d.findElement({ css: SEND }).getAttribute('aria-label')) === 'Odeslat', 'the stand-in Send button is labelled "Odeslat"');
+      await d.findElement({ css: SEND }).click(); await sleep(500);
+      ok((await list('__sent')).length === 0 && (await panelOpen()), 'a Send button with a non-English label is stopped all the same');
+      await esc();
+      await d.get(BASE + '/plain'); await sleep(600);
+    }
+
+    console.log('\nGemini specifics (stand-in copied from the live page, opened under the gemini.google.com host name)');
+    {
+      await d.get(GEM + '/gemini?send=Odeslat&update=Aktualizovat&slow=1'); await sleep(800);
+      ok((await d.executeScript('return location.hostname')) === 'gemini.google.com' && hits.includes('gemini.google.com:' + PORT + '/gemini'), 'the page is the local stand-in, reached under the name gemini.google.com');
+      const panelOpen = () => d.executeScript('return !!document.activeElement && document.activeElement.tagName === "PII-GUARD-ROOT"');
+      const text = (name) => d.executeScript('return (window.wrappedJSObject || window)[arguments[0]].getText().replace(/\\n$/, "")', name);
+      const list = (name) => d.executeScript('return (window.wrappedJSObject || window)[arguments[0]].slice()', name);
+      const enter = () => d.actions().sendKeys(Key.ENTER).perform();
+      const esc = async () => { await d.actions().sendKeys(Key.ESCAPE).perform(); await sleep(300); };
+      const type = (t) => d.actions().sendKeys(t).perform();
+      const clip = (t) => d.executeAsyncScript('const done = arguments[arguments.length - 1]; navigator.clipboard.writeText(arguments[0]).then(() => done(true), (e) => done(String(e)));', t);
+      const ctrlV = async () => { await d.actions().keyDown(Key.CONTROL).sendKeys('v').keyUp(Key.CONTROL).perform(); await sleep(500); };
+      const landed = async (name) => { for (let t = 0; t < 3000; t += 100) { if (/\[NAME_\d+\]/.test(await text(name))) return; await sleep(100); } };
+      const click = async (css) => { await d.findElement({ css }).click(); await sleep(400); };
+      const BOX = '#composer .ql-editor', ARROW = '#send-slot button', UPDATE = '.update-button > button';
+
+      await click(BOX); await type('zavolat Nora Lindqvist'); await sleep(300);
+      ok((await d.findElement({ css: ARROW }).getAttribute('aria-label')) === 'Odeslat', 'the stand-in Send arrow is labelled "Odeslat"');
+      await click(ARROW);
+      ok((await list('__sent')).length === 0 && (await panelOpen()), 'the Send arrow is stopped although PII Guard has no word for its label');
+      await d.takeScreenshot().then((b) => fs.writeFileSync(`${SHOTS}/ff-gemini-arrow.png`, b, 'base64'));
+      await enter(); await landed('__quill');
+      ok(/^zavolat \[NAME_\d+\]$/.test(await text('__quill')), 'the name is replaced in the box: ' + JSON.stringify(await text('__quill')));
+      await click(ARROW);
+      ok(/^zavolat \[NAME_\d+\]$/.test((await list('__sent'))[0] || ''), 'the reviewed text then sends');
+
+      ok((await d.findElement({ css: ARROW }).getAttribute('aria-label')) === 'Stop response', 'the slot now holds the Stop button');
+      await click(BOX); await type('next ask Omar Haddad'); await sleep(300);
+      await click(ARROW);
+      ok(!(await panelOpen()) && (await d.executeScript('return (window.wrappedJSObject || window).__stopped')) === 1, 'Stop works even with a flagged name waiting in the box');
+      await click(ARROW);
+      ok((await list('__sent')).length === 1 && (await panelOpen()), 'and the arrow is stopped again once it is a Send button');
+      await esc();
+      await click('#dictate');
+      ok(!(await panelOpen()) && (await list('__sent')).length === 1, 'other buttons next to the box (Dictate) do not open the panel');
+      await click(BOX);
+      await d.actions().keyDown(Key.CONTROL).sendKeys('a').keyUp(Key.CONTROL).sendKeys(Key.DELETE).perform();
+
+      await click('#edit-box .ql-editor'); await type('Please move Ana Lima to Friday');
+      await enter(); await sleep(500);
+      ok((await list('__edits')).length === 0 && (await panelOpen()), 'edit box: Enter is stopped');
+      await esc();
+      await click(UPDATE);
+      ok((await list('__edits')).length === 0 && (await panelOpen()), 'edit box: its Update button (labelled "Aktualizovat") is stopped');
+      await enter(); await landed('__edit');
+      await click(UPDATE);
+      ok(/^Please move \[NAME_\d+\] to Friday$/.test((await list('__edits'))[0] || ''), 'edit box: after review the edit goes out with a placeholder: ' + JSON.stringify(await list('__edits')));
+
+      await click('#doc-box .ql-editor'); await type('Draft for Lena Fischer');
+      await enter(); await type('second line'); await sleep(500);
+      ok(!(await panelOpen()) && (await text('__doc')) === 'Draft for Lena Fischer\nsecond line', 'in a document editor, Enter starts a new line and is not stopped');
+      await clip(' cc Tomas Novak'); await ctrlV();
+      ok(await panelOpen(), 'a paste into the document editor is still held back');
+      await enter(); await landed('__doc');
+      ok(/second line\s+cc \[NAME_\d+\]$/.test(await text('__doc')), 'and goes in with a placeholder: ' + JSON.stringify(await text('__doc')));
+      await click(BOX); await type('thanks, all good');
+      await click(ARROW);
+      ok(!(await panelOpen()) && (await list('__sent'))[1] === 'thanks, all good', 'a name left in the document editor does not stop a clean message');
+
+      await click(ARROW);                                                           // Stop
+      await d.executeScript('document.querySelector("#composer .ql-clipboard").textContent = "Call Greta Holm now"');
+      await click(BOX); await type('all fine here');
+      await click(ARROW);
+      ok(!(await panelOpen()) && (await list('__sent'))[2] === 'all fine here', "text in the editor's hidden helper box is ignored");
+      await d.get(BASE + '/plain'); await sleep(600);
+    }
+
+    console.log('\nCopilot specifics (stand-in copied from the live page, opened under the copilot.cloud.microsoft host name)');
+    {
+      await d.get(COP + '/copilot?send=Odeslat'); await sleep(800);
+      ok((await d.executeScript('return location.hostname')) === 'copilot.cloud.microsoft' && hits.includes('copilot.cloud.microsoft:' + PORT + '/copilot'), 'the page is the local stand-in, reached under the name copilot.cloud.microsoft');
+      const panelOpen = () => d.executeScript('return !!document.activeElement && document.activeElement.tagName === "PII-GUARD-ROOT"');
+      const text = () => d.executeScript('return (window.wrappedJSObject || window).__lexicalText()');
+      const list = (name) => d.executeScript('return (window.wrappedJSObject || window)[arguments[0]].slice()', name);
+      const enter = () => d.actions().sendKeys(Key.ENTER).perform();
+      const type = (t) => d.actions().sendKeys(t).perform();
+      const click = async (css) => { await d.findElement({ css }).click(); await sleep(400); };
+      const waitFor = async (fn) => { for (let t = 0; t < 3000; t += 100) { if (await fn()) return; await sleep(100); } };
+      const BOX = '#m365-chat-editor-target-element', SEND = '#send-slot button';
+
+      await click(BOX); await type('zavolat Nora Lindqvist'); await sleep(300);
+      ok((await d.findElement({ css: SEND }).getAttribute('aria-label')) === 'Odeslat', 'the stand-in Send button is labelled "Odeslat"');
+      await click(SEND);
+      ok((await list('__sent')).length === 0 && (await panelOpen()), 'the Send button is stopped although PII Guard has no word for its label');
+      await enter(); await waitFor(async () => /\[NAME_\d+\]/.test(await text()));
+      ok(/^zavolat \[NAME_\d+\]$/.test(await text()), 'the name is replaced in the box: ' + JSON.stringify(await text()));
+      await click(SEND);
+      ok(/^zavolat \[NAME_\d+\]$/.test((await list('__sent'))[0] || ''), 'the reviewed text then sends');
+
+      await click('#note'); await d.actions().sendKeys(Key.END).perform(); await enter(); await sleep(500);
+      ok(await panelOpen(), 'the name in a box with hidden text is flagged');
+      const note = () => d.executeScript('return document.getElementById("note").textContent');
+      await enter(); await waitFor(async () => /\[NAME_\d+\]/.test(await note()));
+      ok(/^Call \[NAME_\d+\]$/.test(await note()), 'after replacing, the box holds no invisible characters: ' + JSON.stringify(await note()));
+      await d.get(BASE + '/plain'); await sleep(600);
     }
 
     console.log('\nextension pages and background');

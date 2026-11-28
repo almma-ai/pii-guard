@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><title>gemini test</title>
+<link rel="stylesheet" href="/site.css"></head>
+<body><h1>Gemini-style stand-in</h1>
+<chat-window>
+  <h2>Edit a sent prompt</h2>
+  <user-query><user-query-content>
+    <rich-textarea class="ql-container" id="edit-box"></rich-textarea>
+    <div class="edit-buttons">
+      <gem-button class="cancel-button gem-button"><button>Cancel</button></gem-button>
+      <gem-button class="update-button gem-button"><button>Update</button></gem-button>
+    </div>
+  </user-query-content></user-query>
+  <h2>Document editor</h2>
+  <div id="doc-box"></div>
+  <h2>Message box</h2>
+  <input-container><input-area-v2 id="composer">
+    <div class="text-input-field">
+      <button aria-label="Upload &amp; tools">+</button>
+      <rich-textarea class="text-input-field_textarea ql-container" id="composer-box"></rich-textarea>
+      <div class="trailing-actions-wrapper">
+        <button type="button" aria-label="Open mode picker, currently Auto" data-test-id="bard-mode-menu-button">Auto</button>
+        <div class="input-buttons-wrapper-bottom">
+          <button aria-label="Dictate" id="dictate">mic</button>
+          <div class="send-button-container" id="send-slot"></div>
+        </div>
+      </div>
+    </div>
+  </input-area-v2></input-container>
+</chat-window>
+<script src="/gemini.bundle.js"></script></body></html>
