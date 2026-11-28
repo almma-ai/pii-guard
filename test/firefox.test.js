@@ -19,7 +19,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
 
 // 1. Firefox build that also runs on the local test pages
 const TMP = '/tmp/pii-guard-fftest';
-execFileSync('node', [path.join(ROOT, 'build.js')], { env: { ...process.env, PII_GUARD_DIST: TMP, PII_GUARD_EXTRA_MATCHES: 'http://localhost/*,http://chatgpt.com/*' } });
+execFileSync('node', [path.join(ROOT, 'build.js')], { env: { ...process.env, PII_GUARD_DIST: TMP, PII_GUARD_EXTRA_MATCHES: 'http://localhost/*,http://chatgpt.com/*,http://gemini.google.com/*' } });
 const XPI = fs.readdirSync(TMP).find((f) => f.startsWith('pii-guard-firefox') && f.endsWith('.zip'));
 
 // 2. local web server for the stand-in pages
@@ -30,15 +30,17 @@ const hits = [];
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, BASE);
   hits.push(req.headers.host + u.pathname);
-  const f = u.pathname === '/rich' ? 'rich.html' : u.pathname === '/plain' ? 'plain.html' : u.pathname === '/gpt' ? 'gpt.html' : u.pathname.slice(1);
+  const f = u.pathname === '/rich' ? 'rich.html' : u.pathname === '/plain' ? 'plain.html' : u.pathname === '/gpt' ? 'gpt.html' : u.pathname === '/gemini' ? 'gemini.html' : u.pathname.slice(1);
   const full = path.join(SITE, f);
   if (!full.startsWith(SITE) || !fs.existsSync(full)) { res.writeHead(404); return res.end('nf'); }
   res.writeHead(200, { 'Content-Type': types[path.extname(full)] || 'text/plain', 'Content-Security-Policy': CSP });
   res.end(fs.readFileSync(full));
 }).listen(PORT);
-// The ChatGPT stand-in is opened as http://chatgpt.com:PORT; Firefox is told to resolve that name to this computer,
-// so nothing goes to the real site. PII Guard has one rule that applies on that host name only.
+// The ChatGPT and Gemini stand-ins are opened as http://chatgpt.com:PORT and http://gemini.google.com:PORT; Firefox is
+// told to resolve those names to this computer, so nothing goes to the real sites. PII Guard has rules that apply on
+// those host names only.
 const GPT = 'http://chatgpt.com:' + PORT;
+const GEM = 'http://gemini.google.com:' + PORT;
 
 (async () => {
   const options = new firefox.Options()
@@ -46,8 +48,8 @@ const GPT = 'http://chatgpt.com:' + PORT;
     .addArguments('-headless')
     .setPreference('extensions.webextensions.uuids', JSON.stringify({ 'pii-guard@almma.ai': UUID }))
     .setPreference('dom.events.testing.asyncClipboard', true)
-    .setPreference('network.dns.localDomains', 'chatgpt.com')
-    .setPreference('dom.securecontext.allowlist', 'chatgpt.com')            // so the test can fill the clipboard on that page
+    .setPreference('network.dns.localDomains', 'chatgpt.com,gemini.google.com')
+    .setPreference('dom.securecontext.allowlist', 'chatgpt.com,gemini.google.com')   // so the test can fill the clipboard on those pages
     .setPreference('network.stricttransportsecurity.preloadlist', false)
     .setPreference('dom.security.https_first', false)
     .setPreference('dom.security.https_only_mode', false)
@@ -118,6 +120,8 @@ const GPT = 'http://chatgpt.com:' + PORT;
         read: 'return window.wrappedJSObject ? window.wrappedJSObject.__editor.getText({ blockSeparator: "\\n" }) : window.__editor.getText({ blockSeparator: "\\n" })' },
       { name: 'ChatGPT-style editor in a form (stands in for chatgpt.com)', tag: 'ff-gpt', url: GPT + '/gpt', box: '#ed .ProseMirror', send: '#composer button[type="submit"]',
         read: 'return (window.wrappedJSObject || window).__editor.getText({ blockSeparator: "\\n" })' },
+      { name: 'Quill editor in a rich-textarea (stands in for gemini.google.com)', tag: 'ff-gemini', url: GEM + '/gemini', box: '#composer .ql-editor', send: '#send-slot button',
+        read: 'return (window.wrappedJSObject || window).__quill.getText().replace(/\\n$/, "")' },
       { name: 'React textarea (stands in for chat.almma.ai)', url: BASE + '/plain', box: '#prompt-textarea', send: '#send-button',
         read: 'return window.__state' },
     ]) {
@@ -260,6 +264,73 @@ const GPT = 'http://chatgpt.com:' + PORT;
       await d.findElement({ css: SEND }).click(); await sleep(500);
       ok((await list('__sent')).length === 0 && (await panelOpen()), 'a Send button with a non-English label is stopped all the same');
       await esc();
+      await d.get(BASE + '/plain'); await sleep(600);
+    }
+
+    console.log('\nGemini specifics (stand-in copied from the live page, opened under the gemini.google.com host name)');
+    {
+      await d.get(GEM + '/gemini?send=Odeslat&update=Aktualizovat&slow=1'); await sleep(800);
+      ok((await d.executeScript('return location.hostname')) === 'gemini.google.com' && hits.includes('gemini.google.com:' + PORT + '/gemini'), 'the page is the local stand-in, reached under the name gemini.google.com');
+      const panelOpen = () => d.executeScript('return !!document.activeElement && document.activeElement.tagName === "PII-GUARD-ROOT"');
+      const text = (name) => d.executeScript('return (window.wrappedJSObject || window)[arguments[0]].getText().replace(/\\n$/, "")', name);
+      const list = (name) => d.executeScript('return (window.wrappedJSObject || window)[arguments[0]].slice()', name);
+      const enter = () => d.actions().sendKeys(Key.ENTER).perform();
+      const esc = async () => { await d.actions().sendKeys(Key.ESCAPE).perform(); await sleep(300); };
+      const type = (t) => d.actions().sendKeys(t).perform();
+      const clip = (t) => d.executeAsyncScript('const done = arguments[arguments.length - 1]; navigator.clipboard.writeText(arguments[0]).then(() => done(true), (e) => done(String(e)));', t);
+      const ctrlV = async () => { await d.actions().keyDown(Key.CONTROL).sendKeys('v').keyUp(Key.CONTROL).perform(); await sleep(500); };
+      const landed = async (name) => { for (let t = 0; t < 3000; t += 100) { if (/\[NAME_\d+\]/.test(await text(name))) return; await sleep(100); } };
+      const click = async (css) => { await d.findElement({ css }).click(); await sleep(400); };
+      const BOX = '#composer .ql-editor', ARROW = '#send-slot button', UPDATE = '.update-button > button';
+
+      await click(BOX); await type('zavolat Nora Lindqvist'); await sleep(300);
+      ok((await d.findElement({ css: ARROW }).getAttribute('aria-label')) === 'Odeslat', 'the stand-in Send arrow is labelled "Odeslat"');
+      await click(ARROW);
+      ok((await list('__sent')).length === 0 && (await panelOpen()), 'the Send arrow is stopped although PII Guard has no word for its label');
+      await d.takeScreenshot().then((b) => fs.writeFileSync(`${SHOTS}/ff-gemini-arrow.png`, b, 'base64'));
+      await enter(); await landed('__quill');
+      ok(/^zavolat \[NAME_\d+\]$/.test(await text('__quill')), 'the name is replaced in the box: ' + JSON.stringify(await text('__quill')));
+      await click(ARROW);
+      ok(/^zavolat \[NAME_\d+\]$/.test((await list('__sent'))[0] || ''), 'the reviewed text then sends');
+
+      ok((await d.findElement({ css: ARROW }).getAttribute('aria-label')) === 'Stop response', 'the slot now holds the Stop button');
+      await click(BOX); await type('next ask Omar Haddad'); await sleep(300);
+      await click(ARROW);
+      ok(!(await panelOpen()) && (await d.executeScript('return (window.wrappedJSObject || window).__stopped')) === 1, 'Stop works even with a flagged name waiting in the box');
+      await click(ARROW);
+      ok((await list('__sent')).length === 1 && (await panelOpen()), 'and the arrow is stopped again once it is a Send button');
+      await esc();
+      await click('#dictate');
+      ok(!(await panelOpen()) && (await list('__sent')).length === 1, 'other buttons next to the box (Dictate) do not open the panel');
+      await click(BOX);
+      await d.actions().keyDown(Key.CONTROL).sendKeys('a').keyUp(Key.CONTROL).sendKeys(Key.DELETE).perform();
+
+      await click('#edit-box .ql-editor'); await type('Please move Ana Lima to Friday');
+      await enter(); await sleep(500);
+      ok((await list('__edits')).length === 0 && (await panelOpen()), 'edit box: Enter is stopped');
+      await esc();
+      await click(UPDATE);
+      ok((await list('__edits')).length === 0 && (await panelOpen()), 'edit box: its Update button (labelled "Aktualizovat") is stopped');
+      await enter(); await landed('__edit');
+      await click(UPDATE);
+      ok(/^Please move \[NAME_\d+\] to Friday$/.test((await list('__edits'))[0] || ''), 'edit box: after review the edit goes out with a placeholder: ' + JSON.stringify(await list('__edits')));
+
+      await click('#doc-box .ql-editor'); await type('Draft for Lena Fischer');
+      await enter(); await type('second line'); await sleep(500);
+      ok(!(await panelOpen()) && (await text('__doc')) === 'Draft for Lena Fischer\nsecond line', 'in a document editor, Enter starts a new line and is not stopped');
+      await clip(' cc Tomas Novak'); await ctrlV();
+      ok(await panelOpen(), 'a paste into the document editor is still held back');
+      await enter(); await landed('__doc');
+      ok(/second line\s+cc \[NAME_\d+\]$/.test(await text('__doc')), 'and goes in with a placeholder: ' + JSON.stringify(await text('__doc')));
+      await click(BOX); await type('thanks, all good');
+      await click(ARROW);
+      ok(!(await panelOpen()) && (await list('__sent'))[1] === 'thanks, all good', 'a name left in the document editor does not stop a clean message');
+
+      await click(ARROW);                                                           // Stop
+      await d.executeScript('document.querySelector("#composer .ql-clipboard").textContent = "Call Greta Holm now"');
+      await click(BOX); await type('all fine here');
+      await click(ARROW);
+      ok(!(await panelOpen()) && (await list('__sent'))[2] === 'all fine here', "text in the editor's hidden helper box is ignored");
       await d.get(BASE + '/plain'); await sleep(600);
     }
 

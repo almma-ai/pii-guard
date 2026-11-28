@@ -1,2 +1,7 @@
-/* The white-space rules are the ones ProseMirror editors use on the real sites (checked on chatgpt.com). */
+/* The white-space rules are the ones the editors use on the real sites (checked on chatgpt.com and gemini.google.com). */
 .ProseMirror{border:2px solid #888;padding:12px;min-height:80px;width:600px;font:16px/1.5 Arial;word-wrap:break-word;white-space:pre-wrap;white-space:break-spaces}
+/* Quill (the Gemini stand-in): the editor, and its hidden helper box, placed as Quill's own stylesheet places it. */
+rich-textarea,#doc-box{display:block;position:relative}
+.ql-editor{border:2px solid #888;padding:12px;min-height:60px;width:600px;font:16px/1.5 Arial;word-wrap:break-word;white-space:pre-wrap;outline:none}
+.ql-editor p{margin:0}
+.ql-clipboard{left:-100000px;height:1px;overflow-y:hidden;position:absolute;top:50%}

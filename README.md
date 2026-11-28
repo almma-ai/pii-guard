@@ -2,7 +2,7 @@
 
 <a href="https://www.producthunt.com/products/almma-s-pii-guard?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-almma-s-pii-guard" target="_blank" rel="noopener noreferrer"><img alt="Almma's PII Guard - Catch personal data before it reaches your AI chat | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1328130&amp;theme=light&amp;t=1795618959117"></a>
 
-A browser extension for Chrome and Firefox that catches personal data (names, IDs, dates, addresses, phone numbers, e-mail addresses) in the message box of **claude.ai**, **chatgpt.com** and **chat.almma.ai** before it is sent, and replaces it with placeholders such as `[NAME_1]`. It runs entirely in your browser: the code contains no network calls.
+A browser extension for Chrome and Firefox that catches personal data (names, IDs, dates, addresses, phone numbers, e-mail addresses) in the message box of **claude.ai**, **chatgpt.com**, **gemini.google.com** and **chat.almma.ai** before it is sent, and replaces it with placeholders such as `[NAME_1]`. It runs entirely in your browser: the code contains no network calls.
 
 Demo video (73 s): https://www.youtube.com/watch?v=k2dVQsBeQo4
 
@@ -33,7 +33,7 @@ Built for FERPA- and HIPAA-sensitive work. It lowers risk; it is **not** a compl
 
 **Known limits:** a single unlisted name at the very start of a sentence ("John failed.") is not flagged; lower-case names are not flagged unless listed; fractions like 1/2 can be taken for dates; letter-digit codes can catch product codes (ISO27001). Attached files, images and voice input are not inspected. Text that identifies someone indirectly ("the only student who…") cannot be caught by patterns.
 
-**ChatGPT writing blocks and canvas:** text you paste there is checked like any other paste. Text you type there is marked in red but not held back, because Enter only starts a new line in those boxes and ChatGPT saves what you type as you go.
+**Document-style boxes (ChatGPT writing blocks and canvas, Gemini canvas):** text you paste there is checked like any other paste. Text you type there is marked in red but not held back, because Enter only starts a new line in those boxes and the site saves what you type as you go.
 
 ## Where data is kept
 
@@ -73,15 +73,21 @@ node build.js && node test/chrome.test.js  # Chrome, via Playwright
 node test/firefox.test.js                  # Firefox, via Selenium + geckodriver
 ```
 
-- The browser tests run against stand-in pages (`test/site/`) that use the same kinds of editor as the real sites: a ProseMirror rich-text box (claude.ai), a ProseMirror box inside a form with a writing block and an edit box (chatgpt.com), and a React textarea (chat.almma.ai). They are served with a strict Content-Security-Policy, as the real sites are. They do not visit claude.ai, chatgpt.com or chat.almma.ai.
-- The ChatGPT stand-in (`test/src/gpt.js`) copies the structure of the live chatgpt.com page as it was on 27 November 2026. The Firefox test opens it under the host name chatgpt.com, which Firefox is told to resolve to this computer, because one rule applies on that host name only.
+- The browser tests run against stand-in pages (`test/site/`) that use the same kinds of editor as the real sites: a ProseMirror rich-text box (claude.ai), a ProseMirror box inside a form with a writing block and an edit box (chatgpt.com), a Quill 1.3.7 box with an edit box and a Send / Stop button (gemini.google.com), and a React textarea (chat.almma.ai). They are served with a strict Content-Security-Policy, as the real sites are. They do not visit claude.ai, chatgpt.com, gemini.google.com or chat.almma.ai.
+- The ChatGPT and Gemini stand-ins (`test/src/gpt.js`, `test/src/gemini.js`) copy the structure of the live pages as they were on 27 November 2026. The Firefox test opens them under the host names chatgpt.com and gemini.google.com, which Firefox is told to resolve to this computer, because some rules apply on those host names only.
 - Environment variables: `CHROME_PATH`, `PLAYWRIGHT_PATH`, `FIREFOX_BIN`, `GECKODRIVER`, `SELENIUM_PATH`.
 - `test/screenshots.js` makes the store screenshots from a neutral demo page.
 - After changing a file in `test/src/`, rebuild its page script: `cd test && npm install && npm run bundle`.
 
-Last run (v0.4.0): 50 rule assertions, 125 Chrome checks (Chrome 153), 75 Firefox checks (Firefox 161), Mozilla `addons-linter`: 0 errors, 0 warnings.
+Last run (v0.5.0): 50 rule assertions, 174 Chrome checks (Chrome 153), 107 Firefox checks (Firefox 161), Mozilla `addons-linter`: 0 errors, 0 warnings.
 
-Checked by hand on the real sites, in Chrome, on 27 November 2026: the v0.4.0 page script was run on the live chatgpt.com (red marks, Enter / Send / form submit stopped, paste held back, replacement, sending after review, the edit box, a writing block, "show originals"). On the live claude.ai the three parts that changed in 0.4.0 were checked on their own: reading the text of the box, finding the box from the Send button, and the paste event that puts text in. The packaged extension and Firefox were tested on the stand-in pages only.
+Checked by hand on the real sites, in Chrome, on 27 November 2026:
+
+- **chatgpt.com:** the page script was run on the live page as it stood before Gemini was added (red marks, Enter / Send / form submit stopped, paste held back, replacement, sending after review, the edit box, a writing block, "show originals").
+- **gemini.google.com:** the page script was run on the live page (red marks, Enter and the Send arrow stopped, paste held back, replacement, sending after review, the edit box with its Update button, "show originals"). One line was changed after that run (the one that leaves out the hidden helper box Gemini's editor keeps next to the message box); that line was checked on the live page on its own. Gemini's canvas could not be opened in the test chat, so it was not checked.
+- **claude.ai:** the three parts that changed since 0.3.2 were checked on their own: reading the text of the box, finding the box from the Send button, and the paste event that puts text in.
+
+The packaged extension and Firefox were tested on the stand-in pages only.
 
 ## Layout
 

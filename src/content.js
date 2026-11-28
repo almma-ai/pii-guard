@@ -21,16 +21,27 @@
     }
     return null;
   }
-  var IS_CHATGPT = /(^|\.)chatgpt\.com$/.test(location.hostname);
+  // What differs from site to site (read from the live pages in November 2026).
+  //   home: a site can have rich-text boxes where Enter only starts a new line (ChatGPT's writing blocks and
+  //         canvas; Gemini has a canvas too, though it could not be opened to look at). There a message box
+  //         is told apart by what it sits in. If nothing on the page sits in one, every rich-text box is
+  //         treated as a message box.
+  //   send: Send buttons that have no usable name. Gemini marks them by a class on a wrapper element, in every
+  //         interface language: the arrow of the message box while it holds text (the same arrow is a Stop
+  //         button while a reply is being written), and "Update" in the box for editing a sent message.
+  var SITE = /(^|\.)chatgpt\.com$/.test(location.hostname) ? { home: 'form' }
+    : /(^|\.)gemini\.google\.com$/.test(location.hostname)
+      ? { home: 'rich-textarea', send: '.send-button.submit > button, .update-button > button' }
+      : {};
   function isMessageBox(el) {     // boxes where pressing Enter sends
     if (el.id === 'prompt-textarea') return true;
     if (!el.isContentEditable) return false;
-    // ChatGPT also has rich-text boxes where Enter only starts a new line (the canvas). Its message
-    // box sits in a form; if no box on the page is in a form, every rich-text box is treated as one.
-    if (IS_CHATGPT && !el.closest('form') && document.querySelector('form [contenteditable="true"]')) return false;
+    if (SITE.home && !el.closest(SITE.home) && document.querySelector(SITE.home + ' [contenteditable="true"]')) return false;
     return true;
   }
-  function isShown(el) { return el.getClientRects().length > 0; }
+  function isShown(el) {          // takes up room on the page, and is not the hidden helper box that the Quill editor (Gemini) keeps for pasting
+    return el.getClientRects().length > 0 && !el.classList.contains('ql-clipboard');
+  }
   function boxesIn(container) {   // the visible text boxes inside one part of the page
     var out = [];
     var nodes = container.querySelectorAll('textarea, [contenteditable]');
@@ -551,9 +562,10 @@
     var root = editableRoot(e.target);
     if (root && isMessageBox(root)) guardSend(e, root);
   }, true);
-  // A Send button is recognised in three ways, so that it also works when the site is not shown in English:
-  // it submits the form the message box is in, it is named "send" in the page code, or it is a short
-  // button labelled "Send" right next to a text box (as when editing an earlier message).
+  // A Send button is recognised in four ways, so that it also works when the site is not shown in English:
+  // the site's own marker (SITE.send above), it submits the form the message box is in, it is named "send"
+  // in the page code (its label, test id or id), or it is a short button labelled "Send" right next to a
+  // text box (as when editing an earlier message).
   var SEND_NAME = /send|submit|enviar|envoyer|senden|invia|verzend|verstuur|skicka|wy\u015blij|\u043e\u0442\u043f\u0440\u0430\u0432|g\u00f6nder|\u9001\u4fe1|\u53d1\u9001|\u767c\u9001|\u50b3\u9001|\ubcf4\ub0b4/i;
   var NEAR = 5;   // how many levels up from a labelled button a text box may be
   window.addEventListener('click', function (e) {
@@ -561,9 +573,10 @@
     var btn = e.target.closest('button, input[type="submit"], [role="button"]');
     if (!btn) return;
     var form = btn.form || btn.closest('form');
-    var named = [btn.getAttribute('aria-label'), btn.getAttribute('data-testid'), btn.id, btn.getAttribute('title')].join(' ');
+    var named = [btn.getAttribute('aria-label'), btn.getAttribute('data-testid'), btn.getAttribute('data-test-id'), btn.id,
+      btn.getAttribute('title')].join(' ');
     var shown = btn.tagName === 'INPUT' ? btn.value : (btn.textContent || '').trim();
-    if (SEND_NAME.test(named)) guardBoxes(e, nearestBoxes(btn));
+    if ((SITE.send && btn.matches(SITE.send)) || SEND_NAME.test(named)) guardBoxes(e, nearestBoxes(btn));
     else if (form && btn.getAttribute('type') === 'submit') guardBoxes(e, boxesIn(form));
     else if (/^(BUTTON|INPUT)$/.test(btn.tagName) && shown.length <= 30 && SEND_NAME.test(shown)) guardBoxes(e, nearestBoxes(btn, NEAR));
   }, true);

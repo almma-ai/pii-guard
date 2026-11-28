@@ -21,13 +21,14 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
   const requests = [];
   const serve = (file) => async (route) => {
     const u = new URL(route.request().url());
-    const f = u.pathname === '/' || u.pathname === '/new' || u.pathname.startsWith('/c/') ? file : u.pathname.slice(1);
+    const f = u.pathname === '/' || u.pathname === '/new' || u.pathname === '/app' || u.pathname.startsWith('/c/') ? file : u.pathname.slice(1);
     const full = path.join(SITE, f);
     if (!fs.existsSync(full)) return route.fulfill({ status: 404, body: 'nf' });
     route.fulfill({ status: 200, contentType: types[path.extname(full)], body: fs.readFileSync(full), headers: { 'Content-Security-Policy': CSP } });
   };
   await ctx.route('https://claude.ai/**', serve('rich.html'));
   await ctx.route('https://chatgpt.com/**', serve('gpt.html'));
+  await ctx.route('https://gemini.google.com/**', serve('gemini.html'));
   await ctx.route('https://chat.almma.ai/**', serve('plain.html'));
   ctx.on('request', (r) => requests.push(r.url()));
   let sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent('serviceworker');
@@ -44,6 +45,8 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
       read: (p) => p.evaluate(() => window.__editor.getText({ blockSeparator: '\n' })) },
     { name: 'ChatGPT-style editor in a form (stands in for chatgpt.com)', tag: 'gpt', url: 'https://chatgpt.com/', pattern: 'https://chatgpt.com/*', box: '#ed .ProseMirror', send: '#composer button[type="submit"]',
       read: (p) => p.evaluate(() => window.__editor.getText({ blockSeparator: '\n' })) },
+    { name: 'Quill editor in a rich-textarea (stands in for gemini.google.com)', tag: 'gemini', url: 'https://gemini.google.com/app', pattern: 'https://gemini.google.com/*', box: '#composer .ql-editor', send: '#send-slot button',
+      read: (p) => p.evaluate(() => window.__quill.getText().replace(/\n$/, '')) },
     { name: 'React textarea (stands in for chat.almma.ai)', url: 'https://chat.almma.ai/c/new', pattern: 'https://chat.almma.ai/*', box: '#prompt-textarea', send: '#send-button',
       read: (p) => p.evaluate(() => window.__state) },
   ]) {
@@ -284,6 +287,80 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
     ok(during.length === 0, 'no network request of any kind' + (during.length ? ': ' + during.join(', ') : ''));
   }
 
+  console.log('\nGemini specifics (stand-in copied from the live page)');
+  {
+    const before = requests.length;
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    const URL_G = 'https://gemini.google.com/app?send=Odeslat&update=Aktualizovat&slow=1';
+    await page.goto(URL_G); await page.waitForSelector('#composer .ql-editor'); await page.waitForTimeout(300);
+    const panelOpen = () => page.evaluate(() => document.activeElement && document.activeElement.tagName === 'PII-GUARD-ROOT');
+    const text = (name) => page.evaluate((n) => window[n].getText().replace(/\n$/, ''), name);
+    const sent = () => page.evaluate(() => window.__sent.slice());
+    const edits = () => page.evaluate(() => window.__edits.slice());
+    const copy = (t) => page.evaluate((x) => navigator.clipboard.writeText(x), t);
+    const BOX = '#composer .ql-editor', ARROW = '#send-slot button', UPDATE = '.update-button > button';
+
+    // the Send arrow has no usable name in another language; it is known by the class on its wrapper
+    await page.click(BOX); await page.keyboard.type('zavolat Nora Lindqvist'); await page.waitForTimeout(300);
+    ok((await page.getAttribute(ARROW, 'aria-label')) === 'Odeslat', 'the stand-in Send arrow is labelled "Odeslat"');
+    await page.click(ARROW); await page.waitForTimeout(400);
+    ok((await sent()).length === 0 && (await panelOpen()), 'the Send arrow is stopped although PII Guard has no word for its label');
+    await page.screenshot({ path: `${SHOTS}/gemini-6-arrow.png` });
+    await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+    ok(/^zavolat \[NAME_\d+\]$/.test(await text('__quill')), 'the name is replaced in the box: ' + JSON.stringify(await text('__quill')));
+    await page.click(ARROW); await page.waitForTimeout(300);
+    ok(/^zavolat \[NAME_\d+\]$/.test((await sent())[0] || ''), 'the reviewed text then sends');
+
+    // while a reply is being written, the same slot holds a Stop button; it must never be taken for Send
+    ok((await page.getAttribute(ARROW, 'aria-label')) === 'Stop response', 'the slot now holds the Stop button');
+    await page.click(BOX); await page.keyboard.type('next ask Omar Haddad'); await page.waitForTimeout(300);
+    await page.click(ARROW); await page.waitForTimeout(300);
+    ok(!(await panelOpen()) && (await page.evaluate(() => window.__stopped)) === 1, 'Stop works even with a flagged name waiting in the box');
+    await page.click(ARROW); await page.waitForTimeout(400);
+    ok((await sent()).length === 1 && (await panelOpen()), 'and the arrow is stopped again once it is a Send button');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    await page.click('#dictate'); await page.waitForTimeout(300);
+    ok(!(await panelOpen()) && (await sent()).length === 1, 'other buttons next to the box (Dictate) do not open the panel');
+    await page.click(BOX); await page.keyboard.press('Control+A'); await page.keyboard.press('Delete');
+
+    // editing a sent prompt: a second box, and an Update button with no name at all
+    await page.click('#edit-box .ql-editor'); await page.keyboard.type('Please move Ana Lima to Friday');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(400);
+    ok((await edits()).length === 0 && (await panelOpen()), 'edit box: Enter is stopped');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    ok((await page.textContent(UPDATE)) === 'Aktualizovat', 'the stand-in Update button is labelled "Aktualizovat"');
+    await page.click(UPDATE); await page.waitForTimeout(400);
+    ok((await edits()).length === 0 && (await panelOpen()), 'edit box: its Update button is stopped');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+    await page.click(UPDATE); await page.waitForTimeout(300);
+    ok(/^Please move \[NAME_\d+\] to Friday$/.test((await edits())[0] || ''), 'edit box: after review the edit goes out with a placeholder: ' + JSON.stringify(await edits()));
+
+    // a rich-text box that is not a message box (a document editor): Enter starts a new line there
+    await page.click('#doc-box .ql-editor'); await page.keyboard.type('Draft for Lena Fischer');
+    await page.keyboard.press('Enter'); await page.keyboard.type('second line'); await page.waitForTimeout(400);
+    ok(!(await panelOpen()) && (await text('__doc')) === 'Draft for Lena Fischer\nsecond line', 'in a document editor, Enter starts a new line and is not stopped');
+    await copy(' cc Tomas Novak'); await page.keyboard.press('Control+V'); await page.waitForTimeout(400);
+    ok(await panelOpen(), 'a paste into the document editor is still held back');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(900);
+    ok(/second line\s+cc \[NAME_\d+\]$/.test(await text('__doc')), 'and goes in with a placeholder (this editor does not read the paste event, so the text is typed in): ' + JSON.stringify(await text('__doc')));
+    await page.click(BOX); await page.keyboard.type('thanks, all good');
+    await page.click(ARROW); await page.waitForTimeout(300);
+    ok(!(await panelOpen()) && (await sent())[1] === 'thanks, all good', 'a name left in the document editor does not stop a clean message');
+
+    // Quill keeps a hidden helper box next to the editor; whatever sits in it is not a message
+    await page.click(ARROW); await page.waitForTimeout(200);                       // Stop
+    await page.evaluate(() => { document.querySelector('#composer .ql-clipboard').textContent = 'Call Greta Holm now'; });
+    await page.click(BOX); await page.keyboard.type('all fine here');
+    await page.click(ARROW); await page.waitForTimeout(300);
+    ok(!(await panelOpen()) && (await sent())[2] === 'all fine here', "text in the editor's hidden helper box is ignored");
+    ok(errors.length === 0, 'no script errors on the page' + (errors.length ? ': ' + errors.join(' | ') : ''));
+    await page.close();
+    const during = requests.slice(before).filter((u) => u !== URL_G && !/\.(html|js|css)$|favicon/.test(u));
+    ok(during.length === 0, 'no network request of any kind' + (during.length ? ': ' + during.join(', ') : ''));
+  }
+
   console.log('\nbackground key and toolbar window');
   const r = await sw.evaluate(() => globalThis.__piiGuard.restore('[NAME_1] / [NAME_2] / [ID_1] / [NUMBER_1] / [NAME_3] / [NAME_99]'));
   const restored = r.parts.map((p) => p.plain !== undefined ? p.plain : (p.original === null ? p.token : p.original)).join('');
@@ -296,7 +373,7 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
   await pop.goto(`chrome-extension://${extId}/popup.html`);
   await pop.waitForTimeout(400);
   ok(await pop.locator('#access').isHidden(), 'Chrome: no "not allowed" notice (site access is granted at install)');
-  ok((await pop.locator('#allow').textContent()) === 'Allow on claude.ai, chatgpt.com and chat.almma.ai', 'the toolbar window names the three sites: ' + await pop.locator('#allow').textContent());
+  ok((await pop.locator('#allow').textContent()) === 'Allow on claude.ai, chatgpt.com, gemini.google.com and chat.almma.ai', 'the toolbar window names the four sites: ' + await pop.locator('#allow').textContent());
   const keyText = await pop.locator('#key').innerText();
   ok(keyText.includes('[NAME_1]') && keyText.includes('John Smith') && keyText.includes('[NUMBER_2]'), 'toolbar window lists the placeholder key');
   await pop.fill('#reply', 'Thanks. [NAME_1] should contact [NAME_2] at [NUMBER_1].');
