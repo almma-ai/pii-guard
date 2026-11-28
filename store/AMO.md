@@ -44,7 +44,7 @@ Private by design: PII Guard contains no network code. No servers, no analytics,
 
 Site access: Firefox lets you withdraw an add-on's access to a site at any time. If that happens, PII Guard cannot check anything; its toolbar window shows a warning and a button to allow it again.
 
-PII Guard lowers the risk of sharing personal data; it does not by itself make your use of an AI service compliant with FERPA, HIPAA or any other law. It does not inspect attached files, images or voice input. In document-style boxes (ChatGPT writing blocks and canvas, Gemini canvas), pasted text is checked; text typed there is marked but not held back.
+PII Guard lowers the risk of sharing personal data; it does not by itself make your use of an AI service compliant with FERPA, HIPAA or any other law. It does not inspect attached files, images or voice input. In a ChatGPT writing block (editable text inside a reply), pasted text is checked; text typed there is marked but not held back. The canvas in ChatGPT and in Gemini has not been tested.
 
 Source code: https://github.com/almma-ai/pii-guard
 

@@ -23,7 +23,7 @@ What it catches: names, e-mail addresses, phone and ID numbers, dates, street ad
 
 Private by design: PII Guard contains no network code. No servers, no analytics, no account. The placeholder key lives in memory and is erased when the browser closes.
 
-PII Guard lowers the risk of sharing personal data; it does not by itself make your use of an AI service compliant with FERPA, HIPAA or any other law. It does not inspect attached files, images or voice input. In document-style boxes (ChatGPT writing blocks and canvas, Gemini canvas), pasted text is checked; text typed there is marked but not held back.
+PII Guard lowers the risk of sharing personal data; it does not by itself make your use of an AI service compliant with FERPA, HIPAA or any other law. It does not inspect attached files, images or voice input. In a ChatGPT writing block (editable text inside a reply), pasted text is checked; text typed there is marked but not held back. The canvas in ChatGPT and in Gemini has not been tested.
 
 **Category:** pick the closest offered in the dashboard (Privacy & Security if available, otherwise Tools).
 **Language:** English.

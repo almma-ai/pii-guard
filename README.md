@@ -33,7 +33,7 @@ Built for FERPA- and HIPAA-sensitive work. It lowers risk; it is **not** a compl
 
 **Known limits:** a single unlisted name at the very start of a sentence ("John failed.") is not flagged; lower-case names are not flagged unless listed; fractions like 1/2 can be taken for dates; letter-digit codes can catch product codes (ISO27001). Attached files, images and voice input are not inspected. Text that identifies someone indirectly ("the only student who…") cannot be caught by patterns.
 
-**Document-style boxes (ChatGPT writing blocks and canvas, Gemini canvas):** text you paste there is checked like any other paste. Text you type there is marked in red but not held back, because Enter only starts a new line in those boxes and the site saves what you type as you go.
+**Document-style boxes:** in a ChatGPT writing block (editable text inside a reply), text you paste is checked like any other paste. Text you type there is marked in red but not held back: Enter only starts a new line, so there is no send step to stop, and the site may save what you type as you go. The canvas in ChatGPT and in Gemini has not been tested; do not rely on PII Guard there.
 
 ## Where data is kept
 
