@@ -19,7 +19,7 @@ PII Guard checks what you paste or type into the message box on claude.ai, chatg
 • Reverse it: select the AI's reply, right-click, "show originals" — the real names come back in a private panel, never in the page.
 • Your rules: switch each rule on or off, add names that must always (or never) be flagged, and add your own patterns.
 
-What it catches: names, e-mail addresses, phone and ID numbers, dates, street addresses, web and IP addresses, ages over 89, medical record, policy and account numbers, and vehicle numbers. That covers many of the HIPAA identifiers that appear in text, plus student names and IDs relevant to FERPA.
+What it catches: names, e-mail addresses, phone and ID numbers, dates (month names in English, Spanish, Portuguese, French and German), street addresses, web and IP addresses, ages over 89, medical record, policy and account numbers, and vehicle numbers. That covers many of the HIPAA identifiers that appear in text, plus student names and IDs relevant to FERPA.
 
 Private by design: PII Guard contains no network code. No servers, no analytics, no account. The placeholder key lives in memory and is erased when the browser closes.
 
@@ -54,13 +54,13 @@ PII Guard lowers the risk of sharing personal data; it does not by itself make y
 
 **Privacy policy URL:** https://github.com/almma-ai/pii-guard/blob/main/PRIVACY.md
 
-## Updating the published item to 0.6.0 (adds chatgpt.com, gemini.google.com and copilot.cloud.microsoft)
+## Updating the published item to 0.6.1 (adds chatgpt.com, gemini.google.com and copilot.cloud.microsoft)
 
-1. In the Developer Dashboard open the item, **Package → Upload new package**, and upload `dist/pii-guard-chrome-0.6.0.zip` as it is.
+1. In the Developer Dashboard open the item, **Package → Upload new package**, and upload `dist/pii-guard-chrome-0.6.1.zip` as it is.
 2. **Store listing tab:** replace the description with the text above. Replace `screenshot-4-settings.png` (its wording changed).
 3. **Privacy practices tab:** update the single-purpose text and the host-access justification with the texts above.
 4. Submit for review.
 
-What users see: compared with 0.3.2, version 0.6.0 asks for three more sites (chatgpt.com, gemini.google.com and copilot.cloud.microsoft). Chrome switches an extension off when an update asks for a new site, and keeps it off until the user accepts the new permission. People who already have PII Guard must therefore accept the new permission once; until they do, PII Guard is switched off and does not run on any site. New installs are not affected. Say so in the release notes and on the listing.
+What users see: compared with 0.3.2, version 0.6.1 asks for three more sites (chatgpt.com, gemini.google.com and copilot.cloud.microsoft). Chrome switches an extension off when an update asks for a new site, and keeps it off until the user accepts the new permission. People who already have PII Guard must therefore accept the new permission once; until they do, PII Guard is switched off and does not run on any site. New installs are not affected. Say so in the release notes and on the listing.
 
 Every later update that adds another site does the same again, so it is kinder to users to add sites in one update than in several.
