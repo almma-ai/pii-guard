@@ -26,13 +26,15 @@
   //         canvas; Gemini has a canvas too, though it could not be opened to look at). There a message box
   //         is told apart by what it sits in. If nothing on the page sits in one, every rich-text box is
   //         treated as a message box.
-  //   send: Send buttons that have no usable name. Gemini marks them by a class on a wrapper element, in every
-  //         interface language: the arrow of the message box while it holds text (the same arrow is a Stop
-  //         button while a reply is being written), and "Update" in the box for editing a sent message.
+  //   send: Send buttons marked by a class rather than by a name, which works in every interface language.
+  //         Gemini puts the class on a wrapper element: the arrow of the message box while it holds text (the
+  //         same arrow is a Stop button while a reply is being written), and "Update" in the box for editing
+  //         a sent message. Microsoft Copilot puts it on the Send button itself.
   var SITE = /(^|\.)chatgpt\.com$/.test(location.hostname) ? { home: 'form' }
     : /(^|\.)gemini\.google\.com$/.test(location.hostname)
       ? { home: 'rich-textarea', send: '.send-button.submit > button, .update-button > button' }
-      : {};
+      : /(^|\.)copilot\.cloud\.microsoft$/.test(location.hostname) ? { send: '.fai-SendButton' }
+        : {};
   function isMessageBox(el) {     // boxes where pressing Enter sends
     if (el.id === 'prompt-textarea') return true;
     if (!el.isContentEditable) return false;
@@ -72,13 +74,17 @@
     }
     return true;
   }
+  function isHiddenText(node, root) {   // text an editor keeps out of sight and away from screen readers (Copilot keeps two invisible characters there)
+    for (var el = node.parentElement; el && el !== root; el = el.parentElement) if (el.getAttribute('aria-hidden') === 'true') return true;
+    return false;
+  }
   function collect(root) {         // rich-text box -> plain text plus a map back to its text nodes
     var text = '', segs = [];
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
     var n;
     while ((n = walker.nextNode())) {
       if (n.nodeType === 3) {
-        if (n.data.length) { segs.push({ node: n, start: text.length, len: n.data.length }); text += n.data; }
+        if (n.data.length && !isHiddenText(n, root)) { segs.push({ node: n, start: text.length, len: n.data.length }); text += n.data; }
       } else if (n.tagName === 'BR') {
         if (!isFillerBreak(n, root)) text += '\n';
       } else if (BLOCK.test(n.tagName) && text.length) {

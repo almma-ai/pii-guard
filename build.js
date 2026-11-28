@@ -9,13 +9,13 @@ const ROOT = __dirname;
 const SRC = path.join(ROOT, 'src');
 const DIST = process.env.PII_GUARD_DIST || path.join(ROOT, 'dist');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-const SITES = ['https://claude.ai/*', 'https://chatgpt.com/*', 'https://gemini.google.com/*', 'https://chat.almma.ai/*'];
+const SITES = ['https://claude.ai/*', 'https://chatgpt.com/*', 'https://gemini.google.com/*', 'https://copilot.cloud.microsoft/*', 'https://chat.almma.ai/*'];
 
 const base = {
   manifest_version: 3,
   name: 'Almma\u2019s PII Guard',
   version: pkg.version,
-  description: 'Flags names, numbers and other personal data before you send it to Claude, ChatGPT, Gemini or AlmmaGPT. Runs only on your computer.',
+  description: 'Flags personal data before you send it to Claude, ChatGPT, Gemini, Copilot or AlmmaGPT. Runs only on your computer.',
   permissions: ['contextMenus', 'storage'],
   icons: { 16: 'icons/icon16.png', 32: 'icons/icon32.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' },
   action: { default_title: 'Almma\u2019s PII Guard', default_popup: 'popup.html',

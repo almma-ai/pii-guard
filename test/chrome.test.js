@@ -21,7 +21,7 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
   const requests = [];
   const serve = (file) => async (route) => {
     const u = new URL(route.request().url());
-    const f = u.pathname === '/' || u.pathname === '/new' || u.pathname === '/app' || u.pathname.startsWith('/c/') ? file : u.pathname.slice(1);
+    const f = u.pathname === '/' || u.pathname === '/new' || u.pathname === '/app' || u.pathname === '/chat' || u.pathname.startsWith('/c/') ? file : u.pathname.slice(1);
     const full = path.join(SITE, f);
     if (!fs.existsSync(full)) return route.fulfill({ status: 404, body: 'nf' });
     route.fulfill({ status: 200, contentType: types[path.extname(full)], body: fs.readFileSync(full), headers: { 'Content-Security-Policy': CSP } });
@@ -29,6 +29,7 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
   await ctx.route('https://claude.ai/**', serve('rich.html'));
   await ctx.route('https://chatgpt.com/**', serve('gpt.html'));
   await ctx.route('https://gemini.google.com/**', serve('gemini.html'));
+  await ctx.route('https://copilot.cloud.microsoft/**', serve('copilot.html'));
   await ctx.route('https://chat.almma.ai/**', serve('plain.html'));
   ctx.on('request', (r) => requests.push(r.url()));
   let sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent('serviceworker');
@@ -47,6 +48,8 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
       read: (p) => p.evaluate(() => window.__editor.getText({ blockSeparator: '\n' })) },
     { name: 'Quill editor in a rich-textarea (stands in for gemini.google.com)', tag: 'gemini', url: 'https://gemini.google.com/app', pattern: 'https://gemini.google.com/*', box: '#composer .ql-editor', send: '#send-slot button',
       read: (p) => p.evaluate(() => window.__quill.getText().replace(/\n$/, '')) },
+    { name: 'Lexical editor with no form (stands in for copilot.cloud.microsoft)', tag: 'copilot', url: 'https://copilot.cloud.microsoft/chat', pattern: 'https://copilot.cloud.microsoft/*', box: '#m365-chat-editor-target-element', send: '#send-slot button',
+      read: (p) => p.evaluate(() => window.__lexicalText()) },
     { name: 'React textarea (stands in for chat.almma.ai)', url: 'https://chat.almma.ai/c/new', pattern: 'https://chat.almma.ai/*', box: '#prompt-textarea', send: '#send-button',
       read: (p) => p.evaluate(() => window.__state) },
   ]) {
@@ -361,6 +364,40 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
     ok(during.length === 0, 'no network request of any kind' + (during.length ? ': ' + during.join(', ') : ''));
   }
 
+  console.log('\nCopilot specifics (stand-in copied from the live page)');
+  {
+    const before = requests.length;
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    const URL_C = 'https://copilot.cloud.microsoft/chat?send=Odeslat';
+    await page.goto(URL_C); await page.waitForSelector('#m365-chat-editor-target-element'); await page.waitForTimeout(300);
+    const panelOpen = () => page.evaluate(() => document.activeElement && document.activeElement.tagName === 'PII-GUARD-ROOT');
+    const sent = () => page.evaluate(() => window.__sent.slice());
+    const BOX = '#m365-chat-editor-target-element', SEND = '#send-slot button';
+
+    // the Send button's label is not English here; it is known by its class
+    await page.click(BOX); await page.keyboard.type('zavolat Nora Lindqvist'); await page.waitForTimeout(300);
+    ok((await page.getAttribute(SEND, 'aria-label')) === 'Odeslat', 'the stand-in Send button is labelled "Odeslat"');
+    await page.click(SEND); await page.waitForTimeout(400);
+    ok((await sent()).length === 0 && (await panelOpen()), 'the Send button is stopped although PII Guard has no word for its label');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+    ok(/^zavolat \[NAME_\d+\]$/.test(await page.evaluate(() => window.__lexicalText())), 'the name is replaced in the box: ' + JSON.stringify(await page.evaluate(() => window.__lexicalText())));
+    await page.click(SEND); await page.waitForTimeout(300);
+    ok(/^zavolat \[NAME_\d+\]$/.test((await sent())[0] || ''), 'the reviewed text then sends');
+
+    // the live editor keeps two invisible characters in a hidden span after the text; they are not part of the message
+    await page.click('#note'); await page.keyboard.press('End'); await page.keyboard.press('Enter'); await page.waitForTimeout(400);
+    ok(await panelOpen(), 'the name in a box with hidden text is flagged');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(700);
+    const note = await page.evaluate(() => document.getElementById('note').textContent);
+    ok(/^Call \[NAME_\d+\]$/.test(note), 'after replacing, the box holds no invisible characters: ' + JSON.stringify(note));
+    ok(errors.length === 0, 'no script errors on the page' + (errors.length ? ': ' + errors.join(' | ') : ''));
+    await page.close();
+    const during = requests.slice(before).filter((u) => u !== URL_C && !/\.(html|js|css)$|favicon/.test(u));
+    ok(during.length === 0, 'no network request of any kind' + (during.length ? ': ' + during.join(', ') : ''));
+  }
+
   console.log('\nbackground key and toolbar window');
   const r = await sw.evaluate(() => globalThis.__piiGuard.restore('[NAME_1] / [NAME_2] / [ID_1] / [NUMBER_1] / [NAME_3] / [NAME_99]'));
   const restored = r.parts.map((p) => p.plain !== undefined ? p.plain : (p.original === null ? p.token : p.original)).join('');
@@ -373,7 +410,7 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
   await pop.goto(`chrome-extension://${extId}/popup.html`);
   await pop.waitForTimeout(400);
   ok(await pop.locator('#access').isHidden(), 'Chrome: no "not allowed" notice (site access is granted at install)');
-  ok((await pop.locator('#allow').textContent()) === 'Allow on claude.ai, chatgpt.com, gemini.google.com and chat.almma.ai', 'the toolbar window names the four sites: ' + await pop.locator('#allow').textContent());
+  ok((await pop.locator('#allow').textContent()) === 'Allow on claude.ai, chatgpt.com, gemini.google.com, copilot.cloud.microsoft and chat.almma.ai', 'the toolbar window names the five sites: ' + await pop.locator('#allow').textContent());
   const keyText = await pop.locator('#key').innerText();
   ok(keyText.includes('[NAME_1]') && keyText.includes('John Smith') && keyText.includes('[NUMBER_2]'), 'toolbar window lists the placeholder key');
   await pop.fill('#reply', 'Thanks. [NAME_1] should contact [NAME_2] at [NUMBER_1].');

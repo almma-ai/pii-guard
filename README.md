@@ -2,7 +2,7 @@
 
 <a href="https://www.producthunt.com/products/almma-s-pii-guard?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-almma-s-pii-guard" target="_blank" rel="noopener noreferrer"><img alt="Almma's PII Guard - Catch personal data before it reaches your AI chat | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1328130&amp;theme=light&amp;t=1795618959117"></a>
 
-A browser extension for Chrome and Firefox that catches personal data (names, IDs, dates, addresses, phone numbers, e-mail addresses) in the message box of **claude.ai**, **chatgpt.com**, **gemini.google.com** and **chat.almma.ai** before it is sent, and replaces it with placeholders such as `[NAME_1]`. It runs entirely in your browser: the code contains no network calls.
+A browser extension for Chrome and Firefox that catches personal data (names, IDs, dates, addresses, phone numbers, e-mail addresses) in the message box of **claude.ai**, **chatgpt.com**, **gemini.google.com**, **copilot.cloud.microsoft** (Microsoft Copilot Chat for work and school accounts) and **chat.almma.ai** before it is sent, and replaces it with placeholders such as `[NAME_1]`. It runs entirely in your browser: the code contains no network calls.
 
 Demo video (73 s): https://www.youtube.com/watch?v=k2dVQsBeQo4
 
@@ -73,18 +73,19 @@ node build.js && node test/chrome.test.js  # Chrome, via Playwright
 node test/firefox.test.js                  # Firefox, via Selenium + geckodriver
 ```
 
-- The browser tests run against stand-in pages (`test/site/`) that use the same kinds of editor as the real sites: a ProseMirror rich-text box (claude.ai), a ProseMirror box inside a form with a writing block and an edit box (chatgpt.com), a Quill 1.3.7 box with an edit box and a Send / Stop button (gemini.google.com), and a React textarea (chat.almma.ai). They are served with a strict Content-Security-Policy, as the real sites are. They do not visit claude.ai, chatgpt.com, gemini.google.com or chat.almma.ai.
-- The ChatGPT and Gemini stand-ins (`test/src/gpt.js`, `test/src/gemini.js`) copy the structure of the live pages as they were on 27 November 2026. The Firefox test opens them under the host names chatgpt.com and gemini.google.com, which Firefox is told to resolve to this computer, because some rules apply on those host names only.
+- The browser tests run against stand-in pages (`test/site/`) that use the same kinds of editor as the real sites: a ProseMirror rich-text box (claude.ai), a ProseMirror box inside a form with a writing block and an edit box (chatgpt.com), a Quill 1.3.7 box with an edit box and a Send / Stop button (gemini.google.com), a Lexical box with no form around it (copilot.cloud.microsoft), and a React textarea (chat.almma.ai). They are served with a strict Content-Security-Policy, as the real sites are. They do not visit any of the real sites.
+- The ChatGPT, Gemini and Copilot stand-ins (`test/src/gpt.js`, `test/src/gemini.js`, `test/src/copilot.js`) copy the structure of the live pages as they were on 27 November 2026. The Firefox test opens them under the host names chatgpt.com, gemini.google.com and copilot.cloud.microsoft, which Firefox is told to resolve to this computer, because some rules apply on those host names only.
 - Environment variables: `CHROME_PATH`, `PLAYWRIGHT_PATH`, `FIREFOX_BIN`, `GECKODRIVER`, `SELENIUM_PATH`.
 - `test/screenshots.js` makes the store screenshots from a neutral demo page.
 - After changing a file in `test/src/`, rebuild its page script: `cd test && npm install && npm run bundle`.
 
-Last run (v0.5.0): 50 rule assertions, 174 Chrome checks (Chrome 153), 107 Firefox checks (Firefox 161), Mozilla `addons-linter`: 0 errors, 0 warnings.
+Last run (v0.6.0): 50 rule assertions, 212 Chrome checks (Chrome 153), 129 Firefox checks (Firefox 161), Mozilla `addons-linter`: 0 errors, 0 warnings.
 
-Checked by hand on the real sites, in Chrome, on 27 November 2026:
+Checked by hand on the real sites, in Chrome, on 27 and 28 November 2026:
 
 - **chatgpt.com:** the page script was run on the live page as it stood before Gemini was added (red marks, Enter / Send / form submit stopped, paste held back, replacement, sending after review, the edit box, a writing block, "show originals").
 - **gemini.google.com:** the page script was run on the live page (red marks, Enter and the Send arrow stopped, paste held back, replacement, sending after review, the edit box with its Update button, "show originals"). One line was changed after that run (the one that leaves out the hidden helper box Gemini's editor keeps next to the message box); that line was checked on the live page on its own. Gemini's canvas could not be opened in the test chat, so it was not checked.
+- **copilot.cloud.microsoft:** the parts that are specific to the site were checked on the live page with PII Guard's own functions: reading the text of the box (including the two invisible characters Copilot's editor keeps after the text, which are now left out), putting text in with blank lines and indents kept, and a real Enter key and a real click on Send stopped while a made-up name was in the box. Not checked, because Copilot answered every test message from the automated session with a human check and then "Your request couldn't be completed": sending after review, the Stop button shown while Copilot replies, and the box for editing a sent message. Only the work-and-school Copilot was checked; the personal Copilot (copilot.microsoft.com) and Copilot inside Edge, Teams, Outlook or the Copilot app are not covered.
 - **claude.ai:** the three parts that changed since 0.3.2 were checked on their own: reading the text of the box, finding the box from the Send button, and the paste event that puts text in.
 
 The packaged extension and Firefox were tested on the stand-in pages only.

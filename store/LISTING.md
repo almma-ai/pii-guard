@@ -6,12 +6,12 @@ Upload: `dist/pii-guard-chrome-<version>.zip` (made by `node build.js`).
 
 **Name** (from the manifest): Almma’s PII Guard
 
-**Summary** (from the manifest description, max 132 characters; this one is 131):
-Flags names, numbers and other personal data before you send it to Claude, ChatGPT, Gemini or AlmmaGPT. Runs only on your computer.
+**Summary** (from the manifest description, max 132 characters; this one is 115):
+Flags personal data before you send it to Claude, ChatGPT, Gemini, Copilot or AlmmaGPT. Runs only on your computer.
 
 **Description:**
 
-PII Guard checks what you paste or type into the message box on claude.ai, chatgpt.com, gemini.google.com and chat.almma.ai, and catches personal data before it leaves your computer.
+PII Guard checks what you paste or type into the message box on claude.ai, chatgpt.com, gemini.google.com, copilot.cloud.microsoft and chat.almma.ai, and catches personal data before it leaves your computer.
 
 • Paste: the text is held back first. A review panel shows every flagged item and the placeholder that will replace it, e.g. John Smith → [NAME_1].
 • Typing: flagged text is underlined in red, and sending is paused until you review it.
@@ -23,7 +23,7 @@ What it catches: names, e-mail addresses, phone and ID numbers, dates, street ad
 
 Private by design: PII Guard contains no network code. No servers, no analytics, no account. The placeholder key lives in memory and is erased when the browser closes.
 
-PII Guard lowers the risk of sharing personal data; it does not by itself make your use of an AI service compliant with FERPA, HIPAA or any other law. It does not inspect attached files, images or voice input. In a ChatGPT writing block (editable text inside a reply), pasted text is checked; text typed there is marked but not held back. The canvas in ChatGPT and in Gemini has not been tested.
+PII Guard lowers the risk of sharing personal data; it does not by itself make your use of an AI service compliant with FERPA, HIPAA or any other law. It does not inspect attached files, images or voice input. For Microsoft Copilot it covers the web chat at copilot.cloud.microsoft (work and school accounts), not Copilot inside Teams, Outlook, Edge or the Copilot app. In a ChatGPT writing block (editable text inside a reply), pasted text is checked; text typed there is marked but not held back. The canvas in ChatGPT and in Gemini has not been tested.
 
 **Category:** pick the closest offered in the dashboard (Privacy & Security if available, otherwise Tools).
 **Language:** English.
@@ -39,28 +39,28 @@ PII Guard lowers the risk of sharing personal data; it does not by itself make y
 
 ## Privacy practices tab (answers to confirm before submitting)
 
-**Single purpose:** Detect personal data in the message box of four AI chat sites and replace it with placeholders before the user sends it.
+**Single purpose:** Detect personal data in the message box of five AI chat sites and replace it with placeholders before the user sends it.
 
 **Permission justifications:**
 - contextMenus: right-click items to always flag, never flag, or show the originals of placeholders in selected text.
 - storage: keeps the user's settings and lists on the device, and the placeholder key in session memory.
-- Host access (claude.ai, chatgpt.com, gemini.google.com, chat.almma.ai, via content scripts): needed to read the message box on those four sites; no other sites.
+- Host access (claude.ai, chatgpt.com, gemini.google.com, copilot.cloud.microsoft, chat.almma.ai, via content scripts): needed to read the message box on those five sites; no other sites.
 
 **Remote code:** No. All code is in the package.
 
-**Data usage:** The extension reads text the user enters on the four sites in order to check it on the device. It does not transmit, sell or share any data. (Confirm how the dashboard's checkboxes define "collect" before ticking any category.)
+**Data usage:** The extension reads text the user enters on the five sites in order to check it on the device. It does not transmit, sell or share any data. (Confirm how the dashboard's checkboxes define "collect" before ticking any category.)
 
 **Certifications:** not sold to third parties; not used or transferred for purposes unrelated to the single purpose; not used to determine creditworthiness or for lending.
 
 **Privacy policy URL:** https://github.com/almma-ai/pii-guard/blob/main/PRIVACY.md
 
-## Updating the published item to 0.5.0 (adds chatgpt.com and gemini.google.com)
+## Updating the published item to 0.6.0 (adds chatgpt.com, gemini.google.com and copilot.cloud.microsoft)
 
-1. In the Developer Dashboard open the item, **Package → Upload new package**, and upload `dist/pii-guard-chrome-0.5.0.zip` as it is.
+1. In the Developer Dashboard open the item, **Package → Upload new package**, and upload `dist/pii-guard-chrome-0.6.0.zip` as it is.
 2. **Store listing tab:** replace the description with the text above. Replace `screenshot-4-settings.png` (its wording changed).
 3. **Privacy practices tab:** update the single-purpose text and the host-access justification with the texts above.
 4. Submit for review.
 
-What users see: compared with 0.3.2, version 0.5.0 asks for two more sites (chatgpt.com and gemini.google.com). Chrome switches an extension off when an update asks for a new site, and keeps it off until the user accepts the new permission. People who already have PII Guard must therefore accept the new permission once; until they do, PII Guard is switched off and does not run on any site. New installs are not affected. Say so in the release notes and on the listing.
+What users see: compared with 0.3.2, version 0.6.0 asks for three more sites (chatgpt.com, gemini.google.com and copilot.cloud.microsoft). Chrome switches an extension off when an update asks for a new site, and keeps it off until the user accepts the new permission. People who already have PII Guard must therefore accept the new permission once; until they do, PII Guard is switched off and does not run on any site. New installs are not affected. Say so in the release notes and on the listing.
 
 Every later update that adds another site does the same again, so it is kinder to users to add sites in one update than in several.

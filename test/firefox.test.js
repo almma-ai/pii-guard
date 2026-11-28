@@ -19,7 +19,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
 
 // 1. Firefox build that also runs on the local test pages
 const TMP = '/tmp/pii-guard-fftest';
-execFileSync('node', [path.join(ROOT, 'build.js')], { env: { ...process.env, PII_GUARD_DIST: TMP, PII_GUARD_EXTRA_MATCHES: 'http://localhost/*,http://chatgpt.com/*,http://gemini.google.com/*' } });
+execFileSync('node', [path.join(ROOT, 'build.js')], { env: { ...process.env, PII_GUARD_DIST: TMP, PII_GUARD_EXTRA_MATCHES: 'http://localhost/*,http://chatgpt.com/*,http://gemini.google.com/*,http://copilot.cloud.microsoft/*' } });
 const XPI = fs.readdirSync(TMP).find((f) => f.startsWith('pii-guard-firefox') && f.endsWith('.zip'));
 
 // 2. local web server for the stand-in pages
@@ -30,17 +30,19 @@ const hits = [];
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, BASE);
   hits.push(req.headers.host + u.pathname);
-  const f = u.pathname === '/rich' ? 'rich.html' : u.pathname === '/plain' ? 'plain.html' : u.pathname === '/gpt' ? 'gpt.html' : u.pathname === '/gemini' ? 'gemini.html' : u.pathname.slice(1);
+  const f = u.pathname === '/rich' ? 'rich.html' : u.pathname === '/plain' ? 'plain.html' : u.pathname === '/gpt' ? 'gpt.html' : u.pathname === '/gemini' ? 'gemini.html' : u.pathname === '/copilot' ? 'copilot.html' : u.pathname.slice(1);
   const full = path.join(SITE, f);
   if (!full.startsWith(SITE) || !fs.existsSync(full)) { res.writeHead(404); return res.end('nf'); }
   res.writeHead(200, { 'Content-Type': types[path.extname(full)] || 'text/plain', 'Content-Security-Policy': CSP });
   res.end(fs.readFileSync(full));
 }).listen(PORT);
-// The ChatGPT and Gemini stand-ins are opened as http://chatgpt.com:PORT and http://gemini.google.com:PORT; Firefox is
+// The ChatGPT, Gemini and Copilot stand-ins are opened as http://chatgpt.com:PORT, http://gemini.google.com:PORT and
+// http://copilot.cloud.microsoft:PORT; Firefox is
 // told to resolve those names to this computer, so nothing goes to the real sites. PII Guard has rules that apply on
 // those host names only.
 const GPT = 'http://chatgpt.com:' + PORT;
 const GEM = 'http://gemini.google.com:' + PORT;
+const COP = 'http://copilot.cloud.microsoft:' + PORT;
 
 (async () => {
   const options = new firefox.Options()
@@ -48,8 +50,8 @@ const GEM = 'http://gemini.google.com:' + PORT;
     .addArguments('-headless')
     .setPreference('extensions.webextensions.uuids', JSON.stringify({ 'pii-guard@almma.ai': UUID }))
     .setPreference('dom.events.testing.asyncClipboard', true)
-    .setPreference('network.dns.localDomains', 'chatgpt.com,gemini.google.com')
-    .setPreference('dom.securecontext.allowlist', 'chatgpt.com,gemini.google.com')   // so the test can fill the clipboard on those pages
+    .setPreference('network.dns.localDomains', 'chatgpt.com,gemini.google.com,copilot.cloud.microsoft')
+    .setPreference('dom.securecontext.allowlist', 'chatgpt.com,gemini.google.com,copilot.cloud.microsoft')   // so the test can fill the clipboard on those pages
     .setPreference('network.stricttransportsecurity.preloadlist', false)
     .setPreference('dom.security.https_first', false)
     .setPreference('dom.security.https_only_mode', false)
@@ -122,6 +124,8 @@ const GEM = 'http://gemini.google.com:' + PORT;
         read: 'return (window.wrappedJSObject || window).__editor.getText({ blockSeparator: "\\n" })' },
       { name: 'Quill editor in a rich-textarea (stands in for gemini.google.com)', tag: 'ff-gemini', url: GEM + '/gemini', box: '#composer .ql-editor', send: '#send-slot button',
         read: 'return (window.wrappedJSObject || window).__quill.getText().replace(/\\n$/, "")' },
+      { name: 'Lexical editor with no form (stands in for copilot.cloud.microsoft)', tag: 'ff-copilot', keyboard: true, url: COP + '/copilot', box: '#m365-chat-editor-target-element', send: '#send-slot button',
+        read: 'return (window.wrappedJSObject || window).__lexicalText()' },
       { name: 'React textarea (stands in for chat.almma.ai)', url: BASE + '/plain', box: '#prompt-textarea', send: '#send-button',
         read: 'return window.__state' },
     ]) {
@@ -130,6 +134,9 @@ const GEM = 'http://gemini.google.com:' + PORT;
       await d.get(site.url);
       await sleep(800);
       const box = await d.findElement({ css: site.box });
+      // Typing: a Lexical editor rebuilds its content after the first key, and WebDriver's element-level typing then
+      // loses its target, so there the keys go through the keyboard to the focused box, as a person types.
+      const typeIn = async (t) => { if (site.keyboard) { await box.click(); await d.actions().sendKeys(t).perform(); } else await box.sendKeys(t); };
       const read = () => d.executeScript(site.read);
       const panelOpen = () => d.executeScript('return !!document.activeElement && document.activeElement.tagName === "PII-GUARD-ROOT"');
       const sent = () => d.executeScript('return window.__sent.slice()');
@@ -165,7 +172,7 @@ const GEM = 'http://gemini.google.com:' + PORT;
       ok(!(await panelOpen()) && (await read()) === 'Ask Lena Fischer today', 'Ctrl+Enter inserts the original unchanged');
 
       await clear();
-      await box.sendKeys('Please email Priya Patel about invoice 4471 today');
+      await typeIn('Please email Priya Patel about invoice 4471 today');
       await sleep(1000);
       await d.takeScreenshot().then((b) => fs.writeFileSync(`${SHOTS}/${tag}-typed.png`, b, 'base64'));
       await enter(); await sleep(500);
@@ -176,14 +183,14 @@ const GEM = 'http://gemini.google.com:' + PORT;
       ok((await sent())[0] === 'Please email [NAME_3] about invoice 4471 today', 'second Enter sends it');
 
       await clear();
-      await box.sendKeys('Room 204 with Ana Lima');
+      await typeIn('Room 204 with Ana Lima');
       await d.findElement({ css: site.send }).click(); await sleep(500);
       ok((await sent()).length === 0 && (await panelOpen()), 'clicking Send is stopped');
       await d.actions().sendKeys(Key.ESCAPE).perform(); await sleep(300);
       ok(!(await panelOpen()) && (await read()) === 'Room 204 with Ana Lima', 'Escape cancels and leaves the text alone');
 
       await clear();
-      await box.sendKeys('seen at 123 Main Street on March 3, 2024, MRN A4471');
+      await typeIn('seen at 123 Main Street on March 3, 2024, MRN A4471');
       await enter(); await sleep(500); await enter(); await sleep(600);
       ok(/^seen at \[ADDRESS_\d+\] on \[DATE_\d+\], MRN \[ID_\d+\]$/.test(await read()), 'HIPAA items replaced: ' + JSON.stringify(await read()));
 
@@ -331,6 +338,36 @@ const GEM = 'http://gemini.google.com:' + PORT;
       await click(BOX); await type('all fine here');
       await click(ARROW);
       ok(!(await panelOpen()) && (await list('__sent'))[2] === 'all fine here', "text in the editor's hidden helper box is ignored");
+      await d.get(BASE + '/plain'); await sleep(600);
+    }
+
+    console.log('\nCopilot specifics (stand-in copied from the live page, opened under the copilot.cloud.microsoft host name)');
+    {
+      await d.get(COP + '/copilot?send=Odeslat'); await sleep(800);
+      ok((await d.executeScript('return location.hostname')) === 'copilot.cloud.microsoft' && hits.includes('copilot.cloud.microsoft:' + PORT + '/copilot'), 'the page is the local stand-in, reached under the name copilot.cloud.microsoft');
+      const panelOpen = () => d.executeScript('return !!document.activeElement && document.activeElement.tagName === "PII-GUARD-ROOT"');
+      const text = () => d.executeScript('return (window.wrappedJSObject || window).__lexicalText()');
+      const list = (name) => d.executeScript('return (window.wrappedJSObject || window)[arguments[0]].slice()', name);
+      const enter = () => d.actions().sendKeys(Key.ENTER).perform();
+      const type = (t) => d.actions().sendKeys(t).perform();
+      const click = async (css) => { await d.findElement({ css }).click(); await sleep(400); };
+      const waitFor = async (fn) => { for (let t = 0; t < 3000; t += 100) { if (await fn()) return; await sleep(100); } };
+      const BOX = '#m365-chat-editor-target-element', SEND = '#send-slot button';
+
+      await click(BOX); await type('zavolat Nora Lindqvist'); await sleep(300);
+      ok((await d.findElement({ css: SEND }).getAttribute('aria-label')) === 'Odeslat', 'the stand-in Send button is labelled "Odeslat"');
+      await click(SEND);
+      ok((await list('__sent')).length === 0 && (await panelOpen()), 'the Send button is stopped although PII Guard has no word for its label');
+      await enter(); await waitFor(async () => /\[NAME_\d+\]/.test(await text()));
+      ok(/^zavolat \[NAME_\d+\]$/.test(await text()), 'the name is replaced in the box: ' + JSON.stringify(await text()));
+      await click(SEND);
+      ok(/^zavolat \[NAME_\d+\]$/.test((await list('__sent'))[0] || ''), 'the reviewed text then sends');
+
+      await click('#note'); await d.actions().sendKeys(Key.END).perform(); await enter(); await sleep(500);
+      ok(await panelOpen(), 'the name in a box with hidden text is flagged');
+      const note = () => d.executeScript('return document.getElementById("note").textContent');
+      await enter(); await waitFor(async () => /\[NAME_\d+\]/.test(await note()));
+      ok(/^Call \[NAME_\d+\]$/.test(await note()), 'after replacing, the box holds no invisible characters: ' + JSON.stringify(await note()));
       await d.get(BASE + '/plain'); await sleep(600);
     }
 
