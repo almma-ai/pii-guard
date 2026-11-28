@@ -104,7 +104,16 @@
     'sincerely best all any each every some many most more other another both either neither one two three first second ' +
     'last next new now today tomorrow yesterday let lets see note re subject meet ask call email tell send ' +
     'monday tuesday wednesday thursday friday saturday sunday ' +
-    'january february march april may june july august september october november december').split(' '));
+    'january february march april may june july august september october november december ' +
+    // month and weekday names in Spanish, Portuguese, French and German (a capitalised one is not a name)
+    'enero febrero marzo abril mayo junio julio agosto septiembre setiembre octubre noviembre diciembre ' +
+    'lunes martes mi\u00e9rcoles miercoles jueves viernes s\u00e1bado sabado domingo ' +
+    'janeiro fevereiro mar\u00e7o marco maio junho julho setembro outubro novembro dezembro ' +
+    'segunda ter\u00e7a terca quarta quinta sexta segunda-feira ter\u00e7a-feira terca-feira quarta-feira quinta-feira sexta-feira ' +
+    'janvier f\u00e9vrier fevrier mars avril mai juin juillet ao\u00fbt aout septembre octobre novembre d\u00e9cembre decembre ' +
+    'lundi mardi mercredi jeudi vendredi samedi dimanche ' +
+    'januar j\u00e4nner janner februar feber m\u00e4rz marz maerz juni juli oktober dezember ' +
+    'montag dienstag mittwoch donnerstag freitag samstag sonnabend sonntag').split(' '));
 
   function isSentenceStart(text, index) {
     var i = index - 1;
@@ -144,13 +153,34 @@
   }
 
   // ---------- HIPAA rules ----------
-  var MONTH = '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\.?';
-  var DAY = '(?:[12]\\d|3[01]|0?[1-9])(?:st|nd|rd|th)?';
+  // Month and weekday names in English, Spanish, Portuguese, French and German, with and without accents.
+  // Case is ignored, so "november", "November" and "NOVEMBER" all count.
+  var MONTH_NAME = '(?:' +
+    'Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?' +
+    '|enero|ene|febrero|marzo|abril|abr|mayo|junio|julio|agosto|sept?iembre|setiembre|octubre|noviembre|diciembre|dic' +   // es
+    '|janeiro|fevereiro|fev|mar[cç]o|maio|junho|julho|setembro|outubro|novembro|dezembro|dez' +                       // pt
+    '|janvier|janv|f[eé]vrier|f[eé]vr|mars|avril|avr|mai|juin|juillet|juil|ao[uû]t|septembre|octobre|novembre|d[eé]cembre|d[eé]c' + // fr
+    '|Januar|J[aä]nner|Februar|Feber|M[aä]rz|Maerz|Mär|Juni|Juli|Oktober|Okt|Dezember' +                     // de
+    ')';
+  var MONTH = MONTH_NAME + '\\.?';
+  var WEEKDAY = '(?:' +
+    'Mon(?:day)?|Tue(?:s(?:day)?)?|Wed(?:nesday)?|Thu(?:r(?:s(?:day)?)?)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?' +
+    '|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo' +                                              // es
+    '|(?:segunda|ter[cç]a|quarta|quinta|sexta)(?:-feira)?' +                                                          // pt
+    '|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche' +                                                               // fr
+    '|Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonnabend|Sonntag' +                                             // de
+    ')\\.?';
+  var ON_DAY = '(?:' + WEEKDAY + ',?\\s+(?:(?:the|el|le|der|den)\\s+)?)?';     // "Monday, ", "lunes ", "Montag, den "
+  var DAY = '(?:[12]\\d|3[01]|0?[1-9])(?:st|nd|rd|th|er|º|°)?';      // 3rd, 1er (fr), 1º (es, pt)
   var YEAR = "(?:\\d{4}|'\\d{2})";
+  var YEAR_AFTER_DAY = "(?:\\d{4}|'?\\d{2})";                                  // "24 Nov 24" has a two-digit year
+  var JOIN_YEAR = '(?:,?\\s+|\\s+(?:of|de|del)\\s+)';                         // "November 2024", "November of 2024", "noviembre de 2024"
   var DATE_WORDS = new RegExp(NW + '(?:' +
-    MONTH + '\\s+' + DAY + '(?:,?\\s+' + YEAR + ')?' +                 // March 3, 2024 / Mar. 3rd
-    '|' + DAY + '(?:\\s+of)?\\s+' + MONTH + '(?:,?\\s+' + YEAR + ')?' +  // 3 March 2024 / 3rd of March
-    '|' + MONTH + ',?\\s+\\d{4}' +                                      // March 2024
+    ON_DAY + MONTH + '\\s+' + DAY + '(?:,?\\s+' + YEAR + ')?' +                                   // (Monday,) March 3, 2024 / Mar. 3rd
+    '|' + ON_DAY + DAY + '\\.?(?:\\s+(?:of|de))?\\s+' + MONTH + '(?:' + JOIN_YEAR + YEAR_AFTER_DAY + ')?' + // 3 March 2024 / 3rd of March / 24 de noviembre de 2024 / 24. November 2024
+    '|' + MONTH + JOIN_YEAR + '\\d{4}' +                                                           // March 2024 / noviembre de 2024
+    '|' + DAY + '[\\-\\/]' + MONTH_NAME + '[\\-\\/]' + YEAR_AFTER_DAY +                             // 24-Nov-2024
+    '|' + MONTH_NAME + '[\\-\\/]' + DAY + '[\\-\\/]' + YEAR_AFTER_DAY +                             // Nov-24-2024
     ')' + NE, 'giu');
   var DATE_NUMERIC = new RegExp(NW + '(?:' +
     '\\d{4}-(?:0?[1-9]|1[0-2])-(?:0?[1-9]|[12]\\d|3[01])' +                           // 2024-03-14
@@ -202,7 +232,11 @@
         findTermList((root.PII_GUARD_ROSTER || []).concat(config.custom), 'NAME', t, o);
       } },
     { id: 'ips', run: function (t, o) { findAll(IPV4, t, 'IP', o); findAll(IPV6, t, 'IP', o, function (h) { return /[a-f]|::/i.test(h.text) || h.text.split(':').length === 8; }); } },
-    { id: 'dates', run: function (t, o) { findAll(DATE_WORDS, t, 'DATE', o); findAll(DATE_NUMERIC, t, 'DATE', o); } },
+    { id: 'dates', run: function (t, o) {
+        // lowercase "may 3" / "mar 3" with no year is far more often the verb or a word than a date ("you may 3 times")
+        findAll(DATE_WORDS, t, 'DATE', o, function (h) { return !/^(?:may|mar)\.?\s+\d{1,2}(?:st|nd|rd|th)?$/.test(h.text); });
+        findAll(DATE_NUMERIC, t, 'DATE', o);
+      } },
     { id: 'ages', run: function (t, o) { findAll(AGE, t, 'AGE', o); } },
     { id: 'addresses', run: function (t, o) { findAll(ADDRESS, t, 'ADDRESS', o); findAll(PO_BOX, t, 'ADDRESS', o); } },
     { id: 'labeledIds', run: function (t, o) {

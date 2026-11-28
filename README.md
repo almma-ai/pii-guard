@@ -24,12 +24,14 @@ Built for FERPA- and HIPAA-sensitive work. It lowers risk; it is **not** a compl
 | Names (capitalized runs, titles, your lists) | John Smith, Dr. Maria de la Cruz | `NAME` |
 | E-mail addresses | j.smith@uni.edu | `EMAIL` |
 | Numbers with ≥ 5 digits (adjustable) | (555) 123-4567, 22180 | `NUMBER` |
-| Dates | March 3, 2024 · 3/14 · 2024-03-14 | `DATE` |
+| Dates | March 3, 2024 · Monday, november of 2024 · 24 de noviembre de 2024 · 1º de maio · 1er mars 2024 · 24. November 2024 · 24-Nov-2024 · 3/14 · 2024-03-14 | `DATE` |
 | Street addresses, PO boxes | 123 Main Street, Apt 4B, Vienna, VA 22180 | `ADDRESS` |
 | Web and IP addresses | https://…, 10.0.0.12 | `URL`, `IP` |
 | Ages over 89 | 92-year-old, aged 95 | `AGE` |
 | Labeled record numbers, VINs, letter-digit codes | MRN: A4471, policy # XJ-22, AB1234 | `ID` |
 | Your own patterns | label `COURSE`, pattern `FIN\s?\d{3}` | `COURSE` |
+
+Month and weekday names are recognised in English, Spanish, Portuguese, French and German, in any letter case and with or without accents. A month or weekday on its own is not flagged; it needs a day or a year next to it.
 
 **Known limits:** a single unlisted name at the very start of a sentence ("John failed.") is not flagged; lower-case names are not flagged unless listed; fractions like 1/2 can be taken for dates; letter-digit codes can catch product codes (ISO27001). Attached files, images and voice input are not inspected. Text that identifies someone indirectly ("the only student who…") cannot be caught by patterns.
 
@@ -79,7 +81,7 @@ node test/firefox.test.js                  # Firefox, via Selenium + geckodriver
 - `test/screenshots.js` makes the store screenshots from a neutral demo page.
 - After changing a file in `test/src/`, rebuild its page script: `cd test && npm install && npm run bundle`.
 
-Last run (v0.6.0): 50 rule assertions, 212 Chrome checks (Chrome 153), 129 Firefox checks (Firefox 161), Mozilla `addons-linter`: 0 errors, 0 warnings.
+Last run (v0.6.1): 69 rule assertions, 212 Chrome checks (Chrome 153), 129 Firefox checks (Firefox 161), Mozilla `addons-linter`: 0 errors, 0 warnings.
 
 Checked by hand on the real sites, in Chrome, on 27 and 28 November 2026:
 

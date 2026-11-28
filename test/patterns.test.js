@@ -40,6 +40,30 @@ eq('discharged March 2024', ['DATE:March 2024']);
 eq('visit 3/14 and 03/14/2026 and 2026-03-14 and 14.03.26', ['DATE:3/14', 'DATE:03/14/2026', 'DATE:2026-03-14', 'DATE:14.03.26']);
 eq('Back in 2024 we may march on.', []);                         // a year alone, "may", "march" are fine
 eq('pi is 3.14 and half is 1/2 cup', ['DATE:1/2']);              // known false positive: fractions that look like dates
+// English: any case, "of" between month and year, a weekday in front, dashes
+eq('born in November of 2024', ['DATE:November of 2024']);
+eq('born in november 2024, seen NOVEMBER 3', ['DATE:november 2024', 'DATE:NOVEMBER 3']);
+eq('on Monday, November 24, 2024 at noon; next monday, nov 24th', ['DATE:Monday, November 24, 2024', 'DATE:monday, nov 24th']);
+eq('admitted 24-Nov-2024 and Nov-24-2024, seen 24 Nov 24', ['DATE:24-Nov-2024', 'DATE:Nov-24-2024', 'DATE:24 Nov 24']);
+eq('see you on Monday; we met in november and talked', []);   // a weekday or month alone is not a date
+eq('you may 3 times', []);                                    // lowercase "may 3" with no year is the verb
+eq('the name Jose Negro que nacio en november de 2024 of 11/24/2024', ['NAME:Jose Negro', 'DATE:november de 2024', 'DATE:11/24/2024']);
+// Spanish
+eq('nació el 24 de noviembre de 2024', ['DATE:24 de noviembre de 2024']);
+eq('nacio en noviembre de 2024; el lunes 3 de marzo del 2025; en diciembre 2023', ['DATE:noviembre de 2024', 'DATE:lunes 3 de marzo del 2025', 'DATE:diciembre 2023']);
+eq('sábado 7 de junio', ['DATE:sábado 7 de junio']);
+// Portuguese
+eq('nasceu em 1º de maio de 2024; em março de 2024', ['DATE:1º de maio de 2024', 'DATE:março de 2024']);
+eq('segunda-feira, 24 de novembro de 2025', ['DATE:segunda-feira, 24 de novembro de 2025']);
+// French
+eq('né le 1er mars 2024, vu vendredi 24 novembre 2024', ['DATE:1er mars 2024', 'DATE:vendredi 24 novembre 2024']);
+eq('en février 2023 et le 3 août', ['DATE:février 2023', 'DATE:3 août']);
+eq('Le rendez-vous est en Mars', []);                         // a capitalised month alone is not a name
+// German
+eq('geboren am 24. November 2024', ['DATE:24. November 2024']);
+eq('am Montag, 3. März 2025 und Mittwoch, den 5. Juni 2024', ['DATE:Montag, 3. März 2025', 'DATE:Mittwoch, den 5. Juni 2024']);
+eq('im Dezember 2023 und Jänner 2024', ['DATE:Dezember 2023', 'DATE:Jänner 2024']);
+eq('wir sehen uns am Montag im Dezember', []);                // capitalised nouns, not names
 
 // ---- HIPAA: addresses
 eq('lives at 123 Main Street, Apt 4B, Vienna, VA 22180 now', ['ADDRESS:123 Main Street, Apt 4B, Vienna, VA 22180']);

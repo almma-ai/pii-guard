@@ -7,7 +7,7 @@ Facts about the package:
 - Add-on ID (in the manifest): `pii-guard@almma.ai`. AMO checks that this ID is unique at the first upload.
 - Firefox 142 or later, desktop. The manifest has no `gecko_android` entry, so it is not offered for Firefox for Android.
 - The manifest declares `data_collection_permissions: none` (required by AMO for new extensions since November 2025).
-- Mozilla's checker (`addons-linter`, the same one AMO runs on upload) reports 0 errors, 0 warnings, 0 notices for 0.6.0.
+- Mozilla's checker (`addons-linter`, the same one AMO runs on upload) reports 0 errors, 0 warnings, 0 notices for 0.6.1.
 
 ## Steps (addons.mozilla.org, signed in with a Mozilla account)
 
@@ -38,7 +38,7 @@ PII Guard checks what you paste or type into the message box on claude.ai, chatg
 • Reverse it: select the AI's reply, right-click, "show originals". The real names come back in a private panel, never in the page.
 • Your rules: switch each rule on or off, add names that must always (or never) be flagged, and add your own patterns.
 
-What it catches: names, e-mail addresses, phone and ID numbers, dates, street addresses, web and IP addresses, ages over 89, medical record, policy and account numbers, and vehicle numbers. That covers many of the HIPAA identifiers that appear in text, plus student names and IDs relevant to FERPA.
+What it catches: names, e-mail addresses, phone and ID numbers, dates (month names in English, Spanish, Portuguese, French and German), street addresses, web and IP addresses, ages over 89, medical record, policy and account numbers, and vehicle numbers. That covers many of the HIPAA identifiers that appear in text, plus student names and IDs relevant to FERPA.
 
 Private by design: PII Guard contains no network code. No servers, no analytics, no account. The placeholder key lives in memory and is erased when the browser closes.
 
