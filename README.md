@@ -2,7 +2,7 @@
 
 <a href="https://www.producthunt.com/products/almma-s-pii-guard?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-almma-s-pii-guard" target="_blank" rel="noopener noreferrer"><img alt="Almma's PII Guard - Catch personal data before it reaches your AI chat | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1328130&amp;theme=light&amp;t=1795618959117"></a>
 
-A browser extension that catches personal data (names, IDs, dates, addresses, phone numbers, e-mail addresses) in the message box of **claude.ai** and **chat.almma.ai** before it is sent, and replaces it with placeholders such as `[NAME_1]`. It runs entirely in your browser: the code contains no network calls.
+A browser extension for Chrome and Firefox that catches personal data (names, IDs, dates, addresses, phone numbers, e-mail addresses) in the message box of **claude.ai**, **chatgpt.com** and **chat.almma.ai** before it is sent, and replaces it with placeholders such as `[NAME_1]`. It runs entirely in your browser: the code contains no network calls.
 
 Demo video (73 s): https://www.youtube.com/watch?v=k2dVQsBeQo4
 
@@ -11,7 +11,7 @@ Built for FERPA- and HIPAA-sensitive work. It lowers risk; it is **not** a compl
 ## What it does
 
 - **Paste:** pasted text is held back before the page sees it. A review panel lists every flagged item with its placeholder; you tick what to replace.
-- **Typing:** flagged text is underlined in red as you type, and Enter / Send is stopped until you review it.
+- **Typing:** flagged text is underlined in red as you type, and Enter / Send is stopped until you review it. This also covers the box that opens when you edit a message you already sent.
 - **Shortcuts in the panel:** `Enter` replace · `Ctrl+Enter` (`⌘+Enter` on Mac) keep original · `Esc` cancel.
 - **Right-click on selected text:** *always flag*, *never flag*, *show originals* (turns `[NAME_1]` in an AI reply back into the real name, in a private panel; nothing is written back into the page).
 - **Toolbar button:** placeholder key for this browser session, and a box to restore a pasted reply.
@@ -31,7 +31,9 @@ Built for FERPA- and HIPAA-sensitive work. It lowers risk; it is **not** a compl
 | Labeled record numbers, VINs, letter-digit codes | MRN: A4471, policy # XJ-22, AB1234 | `ID` |
 | Your own patterns | label `COURSE`, pattern `FIN\s?\d{3}` | `COURSE` |
 
-**Known limits:** a single unlisted name at the very start of a sentence ("John failed.") is not flagged; lower-case names are not flagged unless listed; fractions like 1/2 can be taken for dates; letter-digit codes can catch product codes (ISO27001). Attached files and images are not inspected. Text that identifies someone indirectly ("the only student who…") cannot be caught by patterns.
+**Known limits:** a single unlisted name at the very start of a sentence ("John failed.") is not flagged; lower-case names are not flagged unless listed; fractions like 1/2 can be taken for dates; letter-digit codes can catch product codes (ISO27001). Attached files, images and voice input are not inspected. Text that identifies someone indirectly ("the only student who…") cannot be caught by patterns.
+
+**ChatGPT writing blocks and canvas:** text you paste there is checked like any other paste. Text you type there is marked in red but not held back, because Enter only starts a new line in those boxes and ChatGPT saves what you type as you go.
 
 ## Where data is kept
 
@@ -50,7 +52,7 @@ node build.js          # writes dist/chrome, dist/firefox and a zip of each
 ```
 
 - **Chrome / Edge:** `chrome://extensions` (or `edge://extensions`) → Developer mode → *Load unpacked* → `dist/chrome`.
-- **Firefox:** `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → `dist/firefox/manifest.json` (removed when Firefox restarts; a permanent install needs Mozilla signing).
+- **Firefox** (142 or later): `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → `dist/firefox/manifest.json` (removed when Firefox restarts; a permanent install needs Mozilla signing, see `store/AMO.md`). Firefox lets you withdraw site access at any time; the toolbar window warns when that has happened and has a button to allow it again.
 
 After an update: reload the extension, then reload open chat tabs.
 
@@ -71,11 +73,15 @@ node build.js && node test/chrome.test.js  # Chrome, via Playwright
 node test/firefox.test.js                  # Firefox, via Selenium + geckodriver
 ```
 
-- The browser tests run against stand-in pages (`test/site/`) that use the same kinds of editor as the real sites: a ProseMirror rich-text box and a React textarea. They do not visit claude.ai or chat.almma.ai.
+- The browser tests run against stand-in pages (`test/site/`) that use the same kinds of editor as the real sites: a ProseMirror rich-text box (claude.ai), a ProseMirror box inside a form with a writing block and an edit box (chatgpt.com), and a React textarea (chat.almma.ai). They are served with a strict Content-Security-Policy, as the real sites are. They do not visit claude.ai, chatgpt.com or chat.almma.ai.
+- The ChatGPT stand-in (`test/src/gpt.js`) copies the structure of the live chatgpt.com page as it was on 27 November 2026. The Firefox test opens it under the host name chatgpt.com, which Firefox is told to resolve to this computer, because one rule applies on that host name only.
 - Environment variables: `CHROME_PATH`, `PLAYWRIGHT_PATH`, `FIREFOX_BIN`, `GECKODRIVER`, `SELENIUM_PATH`.
 - `test/screenshots.js` makes the store screenshots from a neutral demo page.
+- After changing a file in `test/src/`, rebuild its page script: `cd test && npm install && npm run bundle`.
 
-Last run (v0.3.2): 50 rule assertions, 71 Chrome checks (Chrome 153), 38 Firefox checks (Firefox 160), Mozilla `addons-linter`: 0 errors, 0 warnings.
+Last run (v0.4.0): 50 rule assertions, 125 Chrome checks (Chrome 153), 75 Firefox checks (Firefox 161), Mozilla `addons-linter`: 0 errors, 0 warnings.
+
+Checked by hand on the real site: on 27 November 2026 the v0.4.0 page script was run on the live chatgpt.com in Chrome (red marks, Enter / Send / form submit stopped, paste held back, replacement, sending after review, the edit box, a writing block, "show originals"). The packaged extension and Firefox were tested on the stand-in pages only.
 
 ## Layout
 
@@ -83,7 +89,7 @@ Last run (v0.3.2): 50 rule assertions, 71 Chrome checks (Chrome 153), 38 Firefox
 src/         extension source (shared by Chrome and Firefox)
 build.js     writes per-browser manifests into dist/
 test/        rule tests, browser tests, stand-in pages
-store/       store screenshots, promo tile, listing text
+store/       store screenshots, promo tile, listing text (Chrome: LISTING.md, Firefox: AMO.md)
 PRIVACY.md   privacy policy
 ```
 

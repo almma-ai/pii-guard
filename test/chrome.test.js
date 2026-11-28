@@ -27,6 +27,7 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
     route.fulfill({ status: 200, contentType: types[path.extname(full)], body: fs.readFileSync(full), headers: { 'Content-Security-Policy': CSP } });
   };
   await ctx.route('https://claude.ai/**', serve('rich.html'));
+  await ctx.route('https://chatgpt.com/**', serve('gpt.html'));
   await ctx.route('https://chat.almma.ai/**', serve('plain.html'));
   ctx.on('request', (r) => requests.push(r.url()));
   let sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent('serviceworker');
@@ -41,11 +42,13 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
   for (const site of [
     { name: 'rich editor (stands in for claude.ai)', url: 'https://claude.ai/new', pattern: 'https://claude.ai/*', box: '.ProseMirror', send: '#send',
       read: (p) => p.evaluate(() => window.__editor.getText({ blockSeparator: '\n' })) },
+    { name: 'ChatGPT-style editor in a form (stands in for chatgpt.com)', tag: 'gpt', url: 'https://chatgpt.com/', pattern: 'https://chatgpt.com/*', box: '#ed .ProseMirror', send: '#composer button[type="submit"]',
+      read: (p) => p.evaluate(() => window.__editor.getText({ blockSeparator: '\n' })) },
     { name: 'React textarea (stands in for chat.almma.ai)', url: 'https://chat.almma.ai/c/new', pattern: 'https://chat.almma.ai/*', box: '#prompt-textarea', send: '#send-button',
       read: (p) => p.evaluate(() => window.__state) },
   ]) {
     console.log('\n' + site.name);
-    const tag = site.box === '.ProseMirror' ? 'rich' : 'plain';
+    const tag = site.tag || (site.box === '.ProseMirror' ? 'rich' : 'plain');
     await sw.evaluate(() => chrome.storage.local.set({ custom: [], ignore: [] }));   // lists are shared by all tabs
     const page = await ctx.newPage();
     const errors = [];
@@ -67,6 +70,8 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
     await page.keyboard.press('Control+V');
     await page.waitForTimeout(400);
     ok(await panelOpen(), 'paste of flagged text opens the review panel');
+    ok(await page.evaluate(() => { const st = document.createElement('style'); st.textContent = 'p{}'; document.head.appendChild(st); const blocked = !st.sheet; st.remove(); return blocked; }), "the page's security header blocks inline styles, as on the real sites");
+    ok(await page.evaluate(() => document.elementFromPoint(5, 5).tagName === 'PII-GUARD-ROOT'), 'yet the review panel covers the page (its own styles work)');
     ok((await site.read(page)) === '', 'the message box is still empty while the panel is open');
     await page.screenshot({ path: `${SHOTS}/${tag}-1-panel.png` });
     await page.keyboard.press('Enter');
@@ -134,6 +139,14 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
     const mid = await site.read(page);
     ok(/^start\scode \[NUMBER_\d+\]\send$/.test(mid), 'mid-text paste lands at the caret: "' + mid + '"');
 
+    // G2 spaces are kept exactly (indented code, columns)
+    await clear();
+    await copy('if ok:\n    call Greta Holm  now');
+    await page.click(site.box); await page.keyboard.press('Control+V'); await page.waitForTimeout(400);
+    await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+    const spaced = await site.read(page);
+    ok(/^if ok:\n    call \[NAME_\d+\]  now$/.test(spaced), 'indentation and double spaces are kept as ordinary spaces: ' + JSON.stringify(spaced));
+
     // H right-click "always flag" (start with an empty list; it is shared by all tabs)
     await sw.evaluate(() => chrome.storage.local.set({ custom: [], ignore: [] }));
     await page.waitForTimeout(200);
@@ -189,9 +202,86 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
 
     ok(errors.length === 0, 'no script errors on the page' + (errors.length ? ': ' + errors.join(' | ') : ''));
-    const during = requests.slice(before).filter((u) => !/\.(html|js|css)$|\/new$|\/c\/new$|favicon/.test(u));
+    const during = requests.slice(before).filter((u) => u !== site.url && !/\.(html|js|css)$|\/new$|\/c\/new$|favicon/.test(u));
     ok(during.length === 0, 'no network request of any kind' + (during.length ? ': ' + during.join(', ') : ''));
     await page.close();
+  }
+
+  console.log('\nChatGPT specifics (stand-in copied from the live page)');
+  {
+    const before = requests.length;
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await page.goto('https://chatgpt.com/'); await page.waitForSelector('#ed .ProseMirror'); await page.waitForTimeout(300);
+    const panelOpen = () => page.evaluate(() => document.activeElement && document.activeElement.tagName === 'PII-GUARD-ROOT');
+    const text = (name) => page.evaluate((n) => window[n].getText({ blockSeparator: '\n' }), name);
+    const sent = () => page.evaluate(() => window.__sent.slice());
+    const edits = () => page.evaluate(() => window.__edits.slice());
+    const copy = (t) => page.evaluate((x) => navigator.clipboard.writeText(x), t);
+    const BOX = '#ed .ProseMirror', SEND = '#composer button[type="submit"]';
+
+    // blank lines survive "replace in the box"
+    await copy('Dear team,\n\nplease see the notes.');
+    await page.click(BOX); await page.keyboard.press('Control+V'); await page.waitForTimeout(300);
+    ok(!(await panelOpen()) && (await text('__editor')) === 'Dear team,\n\nplease see the notes.', 'clean pasted text with a blank line goes straight in');
+    await page.keyboard.press('Shift+Enter'); await page.keyboard.press('Shift+Enter');
+    await page.keyboard.type('Ask Nora Lindqvist first.');
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: `${SHOTS}/gpt-6-blank-lines.png` });
+    await page.keyboard.press('Enter'); await page.waitForTimeout(400);
+    ok((await sent()).length === 0 && (await panelOpen()), 'Enter with a typed name is stopped');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+    const kept = await text('__editor');
+    ok(/^Dear team,\n\nplease see the notes\.\n\nAsk \[NAME_\d+\] first\.$/.test(kept), 'blank lines (pasted and typed) are kept when the name is replaced in the box: ' + JSON.stringify(kept));
+    await page.focus(BOX); await page.keyboard.press('Enter'); await page.waitForTimeout(300);
+    ok((await sent())[0] === kept, 'the reviewed text then sends on Enter');
+
+    // the page itself submitting the form (not a key press or a click on Send)
+    await page.click(BOX); await page.keyboard.type('Meet Omar Haddad at 3');
+    await page.evaluate(() => document.getElementById('composer').requestSubmit());
+    await page.waitForTimeout(400);
+    ok((await sent()).length === 1 && (await panelOpen()), 'a form submit started by the page itself is stopped');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    await page.click('#dictate'); await page.waitForTimeout(300);
+    ok(!(await panelOpen()) && (await sent()).length === 1, 'other buttons in the form (Dictate) do not open the panel');
+    await page.click(BOX); await page.keyboard.press('Control+A'); await page.keyboard.press('Delete');
+
+    // writing block in a reply: Enter starts a new line there
+    await page.click('#writing .ProseMirror'); await page.keyboard.type('Draft for Lena Fischer');
+    await page.keyboard.press('Enter'); await page.keyboard.type('second line'); await page.waitForTimeout(400);
+    ok(!(await panelOpen()) && (await text('__writing')) === 'Draft for Lena Fischer\nsecond line', 'in a writing block, Enter starts a new line and is not stopped');
+    await copy(' cc Tomas Novak'); await page.keyboard.press('Control+V'); await page.waitForTimeout(400);
+    ok(await panelOpen(), 'a paste into the writing block is still held back');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+    ok(/second line cc \[NAME_\d+\]$/.test(await text('__writing')), 'and goes in with a placeholder: ' + JSON.stringify(await text('__writing')));
+    await page.click(BOX); await page.keyboard.type('thanks, all good');
+    await page.click(SEND); await page.waitForTimeout(300);
+    ok(!(await panelOpen()) && (await sent())[1] === 'thanks, all good', 'a name left in the writing block does not stop a clean message');
+
+    // editing a sent message: its own form, a Send button with no label in the page code
+    await page.click('#edit-ed .ProseMirror'); await page.keyboard.type('Please move Ana Lima to Friday');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(400);
+    ok((await edits()).length === 0 && (await panelOpen()), 'edit box: Enter is stopped');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    await page.click('#edit-form button[type="submit"]'); await page.waitForTimeout(400);
+    ok((await edits()).length === 0 && (await panelOpen()), 'edit box: its Send button is stopped');
+    await page.keyboard.press('Enter'); await page.waitForTimeout(500);
+    await page.click('#edit-form button[type="submit"]'); await page.waitForTimeout(300);
+    ok(/^Please move \[NAME_\d+\] to Friday$/.test((await edits())[0] || ''), 'edit box: after review the edit sends with a placeholder: ' + JSON.stringify(await edits()));
+    ok(errors.length === 0, 'no script errors on the page' + (errors.length ? ': ' + errors.join(' | ') : ''));
+    await page.close();
+
+    // ChatGPT shown in another language: the Send button has a label PII Guard has no word for
+    const cz = await ctx.newPage();
+    await cz.goto('https://chatgpt.com/?send=Odeslat'); await cz.waitForSelector(BOX); await cz.waitForTimeout(300);
+    await cz.click(BOX); await cz.keyboard.type('Zavolat Nora Lindqvist');
+    ok((await cz.getAttribute(SEND, 'aria-label')) === 'Odeslat', 'the stand-in Send button is labelled "Odeslat"');
+    await cz.click(SEND); await cz.waitForTimeout(400);
+    ok((await cz.evaluate(() => window.__sent.length)) === 0 && (await cz.evaluate(() => document.activeElement.tagName === 'PII-GUARD-ROOT')), 'a Send button with a non-English label is stopped all the same');
+    await cz.close();
+    const during = requests.slice(before).filter((u) => !/^https:\/\/chatgpt\.com\/(\?send=Odeslat)?$|\.(html|js|css)$|favicon/.test(u));
+    ok(during.length === 0, 'no network request of any kind' + (during.length ? ': ' + during.join(', ') : ''));
   }
 
   console.log('\nbackground key and toolbar window');
@@ -206,6 +296,7 @@ const ok = (c, msg) => { assert.ok(c, msg); pass++; console.log('  ok  ' + msg);
   await pop.goto(`chrome-extension://${extId}/popup.html`);
   await pop.waitForTimeout(400);
   ok(await pop.locator('#access').isHidden(), 'Chrome: no "not allowed" notice (site access is granted at install)');
+  ok((await pop.locator('#allow').textContent()) === 'Allow on claude.ai, chatgpt.com and chat.almma.ai', 'the toolbar window names the three sites: ' + await pop.locator('#allow').textContent());
   const keyText = await pop.locator('#key').innerText();
   ok(keyText.includes('[NAME_1]') && keyText.includes('John Smith') && keyText.includes('[NUMBER_2]'), 'toolbar window lists the placeholder key');
   await pop.fill('#reply', 'Thanks. [NAME_1] should contact [NAME_2] at [NUMBER_1].');
